@@ -30,7 +30,8 @@ public class Client {
     //HTTP
     Timer timer; //timer used to read from buffer
     byte[] buf; //buffer used to store data received from the server
-  
+    Integer length; //video duration
+    
     final static int INIT = 0;
     final static int READY = 1;
     final static int PLAYING = 2;
@@ -42,6 +43,7 @@ public class Client {
     static int HTTP_RCV_PORT = 25000;
     static int HTTP_SND_PORT = 80;
     
+    static String ServerHost;
     final static String CRLF = "\r\n";
     
     public Client() {
@@ -101,7 +103,7 @@ public class Client {
 	    
 	    //get server RTSP port and IP address from the command line
 	    //------------------
-	    String ServerHost = argv[0];
+	    ServerHost = argv[0];
 	    InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
 	    
 	    //get video filename to request:
@@ -115,7 +117,7 @@ public class Client {
 	    { 
 	    	e.printStackTrace();
 	    }
-	    state = READY;
+	    state = INIT;
 	    
 	    
 	}
@@ -134,17 +136,9 @@ public class Client {
 	        
 	        if (state == INIT)
 	        {
-	            /*try{
-	            	
-	            }
-	            catch (SocketException se)
-	            {
-	                System.out.println("Socket exception: "+se);
-	                System.exit(0);
-	            }*/
-	            
-	           
-	            
+	        	send_HTTP_get_request();
+	        	length = parse_HTTP_response_header();
+	        	state = READY;
 	        }//else if state != INIT then do nothing
 	    }
 	}
@@ -158,26 +152,11 @@ public class Client {
 	        
 	        if (state == READY)
 	        {
-	            //increase RTSP sequence number
-	            RTSPSeqNb++;
-	            
-	            
-	            //Send PLAY message to the server
-	            System.out.println("sending play request...");
-	            send_RTSP_request("PLAY");
-	            
-	            //Wait for the response
-	            if (parse_server_response() != 200)
-	                System.out.println("Invalid Server Response");
-	            else
-	            {
-	                //change RTSP state and print out new state
-	                state = PLAYING;
-	                System.out.println("New RTSP state: PLAYING");
+	           
 	                
-	                //start the timer
-	                timer.start();
-	            }
+	            //start the timer
+	        	timer.start();
+	            
 	        }//else if state != READY then do nothing
 	    }
 	}
@@ -192,24 +171,8 @@ public class Client {
 	        
 	        if (state == PLAYING)
 	        {
-	            //increase RTSP sequence number
-	            RTSPSeqNb++;
 	            
-	            //Send PAUSE message to the server
-	            send_RTSP_request("PAUSE");
-	            
-	            //Wait for the response
-	            if (parse_server_response() != 200)
-	                System.out.println("Invalid Server Response");
-	            else
-	            {
-	                //change RTSP state and print out new state
-	                state = READY;
-	                System.out.println("New RTSP state: READY");
-	                
-	                //stop the timer
-	                timer.stop();
-	            }
+	        	timer.stop();
 	        }
 	        //else if state != PLAYING then do nothing
 	    }
@@ -239,24 +202,8 @@ public class Client {
 	class timerListener implements ActionListener {
 	    public void actionPerformed(ActionEvent e) {
 	        
-	        //Construct a DatagramPacket to receive data from the UDP socket
-	        rcvdp = new DatagramPacket(buf, buf.length);
-	        
-	        try{
-	            //receive the DP from the socket:
-	            RTPsocket.receive(rcvdp);
-	            
-	            //create an RTPpacket object from the DP
-	            RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
-	            
-	            //print important header fields of the RTP packet received:
-	            //System.out.println("Got RTP packet with SeqNum # "+rtp_packet.getsequencenumber()+" TimeStamp "+rtp_packet.getTimeStamp()+" ms, of type "+rtp_packet.getpayloadtype());
-	            
-	            //print header bitstream:
-	            rtp_packet.printheader();
-	            
-	            //get the payload bitstream from the RTPpacket object
-	            int payload_length = rtp_packet.getpayload_length();
+	       
+	            /*int payload_length = rtp_packet.getpayload_length();
 	            byte [] payload = new byte[payload_length];
 	            rtp_packet.getpayload(payload);
 	            
@@ -266,15 +213,10 @@ public class Client {
 	            
 	            //display the image as an ImageIcon object
 	            icon = new ImageIcon(image);
-	            iconLabel.setIcon(icon);
-	        }
-	        catch (InterruptedIOException iioe){
-	        	//iioe.printStackTrace();
-	            //System.out.println("Nothing to read");
-	        }
-	        catch (IOException ioe) {
-	            System.out.println("Exception caught: "+ioe);
-	        }
+	            iconLabel.setIcon(icon);*/
+	    	
+	    	
+	       
 	    }
 	}
 	
@@ -282,18 +224,34 @@ public class Client {
 	//Parse Server Response
 	//------------------------------------
 	
-	private int parse_HTTP_response_header(){
+	public Integer parse_HTTP_response_header(){
 		try {
 			String HeaderLine = HTTPBufferedReader.readLine();
 			System.out.println(HeaderLine);
 			
 			StringTokenizer tokens = new StringTokenizer(HeaderLine);
 			tokens.nextToken(); //Skip HTTP Version
-			Integer responseCode = Integer.parseInt(tokens.nextToken());
+			Integer responseCode = Integer.parseInt(tokens.nextToken()); //Pega código de resposta
+			String responseDesc = tokens.nextToken(); //Pega descrição do erro
 			
 			if (responseCode != 200){
-				
-			}
+				System.out.println("Resposta HTTP: " + responseCode + responseDesc);
+				return 0;
+			} 
+			
+			//Agora vai ler as próximas linhas até encontrar uma linha que só tenha CRLF, encontra
+			//o comprimento do conteúdo e retorna esse valor!
+			do {
+				HeaderLine = HTTPBufferedReader.readLine();
+				tokens = new StringTokenizer(HeaderLine);
+				String headerAttr = tokens.nextToken(); //descobre qual é o atributo daquela linha
+				if (headerAttr.equals("Content-Length:")){
+					Integer length = Integer.parseInt(tokens.nextToken());
+					return length;
+				}
+			} while (!HeaderLine.equals(""));
+			
+			return 0; //não era pra acontecer, mas né...
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -304,44 +262,19 @@ public class Client {
 	//------------------------------------
 	//Send HTTP Request
 	//------------------------------------
-	
-	//.............
-	//TO COMPLETE
-	//.............
-	
-	private void send_RTSP_request(String request_type)
+
+	public void send_HTTP_get_request()
 	{
-	    try{
-	        //Use the RTSPBufferedWriter to write to the RTSP socket
-	        
-	    	String request_line = request_type + " " + VideoFileName + " " + "RTSP/1.0" + CRLF;
-	    	//write the request line:
-	        RTSPBufferedWriter.write(request_line);
-	        
-	        //write the CSeq line: 
-	        Integer CSeq = RTSPSeqNb; 
-	        String CSeq_line = "CSeq: " + CSeq.toString() + CRLF;
-	        
-	        RTSPBufferedWriter.write(CSeq_line);
-	        
-	        String transport_line;
-	        //check if request_type is equal to "SETUP" and in this case write the Transport: line advertising to the server the port used to receive the RTP packets RTP_RCV_PORT
-	        if (request_type.compareTo("SETUP") == 0){
-	        	transport_line = "Transport: RTP/UDP; client_port= " + RTP_RCV_PORT + CRLF;
-	        }
-	        //otherwise, write the Session line from the RTSPid field
-	        else {
-	        	transport_line = "Session: " + RTSPid + CRLF;
-	        }
-	        RTSPBufferedWriter.write(transport_line);
-	        
-	        RTSPBufferedWriter.flush();
-	    }
-	    catch(Exception ex)
-	    {
-	        System.out.println("Exception caught: "+ex);
-	        System.exit(0);
-	    }
+	    try {
+	    	String methodLine = "GET " + VideoFileName + " http\1.1" + CRLF;
+		    System.out.print(methodLine);
+			HTTPBufferedWriter.write(methodLine);
+			String hostLine = "Host: " + ServerHost + CRLF;
+			System.out.print(hostLine);
+			HTTPBufferedWriter.write(hostLine);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 }
