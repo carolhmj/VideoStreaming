@@ -35,12 +35,11 @@ public class Client {
     final static int INIT = 0;
     final static int READY = 1;
     final static int PLAYING = 2;
-    static int state; //state == INIT or READY or PLAYING
+    static int state = -1; //state == INIT or READY or PLAYING
     Socket HTTPsocket; //socket used to send/receive HTTP
     static InputStream HTTPInputStream;
     static OutputStream HTTPOutputStream;
     static String VideoFileName; //video file to request to the server
-    static int HTTP_RCV_PORT = 25000;
     static int HTTP_SND_PORT = 80;
     
     static String ServerHost;
@@ -111,18 +110,19 @@ public class Client {
 	    
 	    //get video filename to request:
 	    VideoFileName = argv[1];
+	    System.out.println(VideoFileName + " requested video");
 	    
 	    try 
 	    {
 	    	theClient.HTTPsocket = new Socket(ServerIPAddr, HTTP_SND_PORT);
         	HTTPInputStream = theClient.HTTPsocket.getInputStream();
         	HTTPOutputStream = theClient.HTTPsocket.getOutputStream();
+        	state = INIT;
 	    } 
 	    catch(Exception e) 
 	    { 
 	    	e.printStackTrace();
 	    }
-	    state = INIT;
 	    
 	    
 	}
@@ -141,11 +141,7 @@ public class Client {
 	        
 	        if (state == INIT)
 	        {
-	        	send_HTTP_get_request();
-	        	length = parse_HTTP_response_header();
-	        	if (length != 0){
-	        		state = READY;
-	        	}
+	        	state = READY;
 	        	System.out.println(state);
 	        }//else if state != INIT then do nothing
 	    }
@@ -161,9 +157,13 @@ public class Client {
 		        if (state == READY)
 		        {
 		            //start the timer
-		        	videoDecoder = new VideoStream(HTTPInputStream);
-		        	timer.start();
-		        	state = PLAYING;
+		        	send_HTTP_get_request();
+		        	length = parse_HTTP_response_header();
+		        	if (length != 0){
+			        	videoDecoder = new VideoStream(HTTPInputStream);
+			        	timer.start();
+		        		state = PLAYING;
+		        	}
 		        }//else if state != READY then do nothing
 			} catch (Exception e2) {
 				e2.printStackTrace();
@@ -213,13 +213,15 @@ public class Client {
 	    public void actionPerformed(ActionEvent e) {
 	        	    		
 	    		try {
-	    			byte[] frame = null;
-					int frame_len = videoDecoder.getnextframe(frame);
-					
+	    			//byte[] frame;
+					//int frame_len = videoDecoder.getnextframe(frame);
+					Frame frame = videoDecoder.getnextframe();
+	    			
 					//get an Image object from the payload bitstream
 					Toolkit toolkit = Toolkit.getDefaultToolkit();
-		            Image image = toolkit.createImage(frame, 0, frame_len);
-		            
+		            //Image image = toolkit.createImage(frame, 0, frame_len);
+		            Image image = toolkit.createImage(frame.getImageData(), 0, frame.getLength());;
+					
 		            //display the image as an ImageIcon object
 		            icon = new ImageIcon(image);
 		            iconLabel.setIcon(icon);
@@ -246,21 +248,21 @@ public class Client {
 			
 			StringTokenizer tokens = new StringTokenizer(HeaderLine);
 			tokens.nextToken(); //Skip HTTP Version
-			Integer responseCode = Integer.parseInt(tokens.nextToken()); //Pega código de resposta
+			Integer responseCode = Integer.parseInt(tokens.nextToken()); //Pega codigo de resposta
 			String responseDesc = "";
 			for (int i = 0; i < tokens.countTokens(); i++){
-				responseDesc = responseDesc + " " + tokens.nextToken(); //Pega descrição do erro
+				responseDesc = responseDesc + " " + tokens.nextToken(); //Pega descricao do erro
 			} 
 			
-			//Agora vai ler as próximas linhas até encontrar uma linha que só tenha CRLF, encontra
-			//o comprimento do conteúdo e retorna esse valor!
+			//Agora vai ler as proximas linhas ate encontrar uma linha que so tenha CRLF, encontra
+			//o comprimento do conteudo e retorna esse valor!
 			Integer lengthVideo = 0;
 			do {
 				HeaderLine = read_line_input_stream(HTTPInputStream);
 				System.out.println(HeaderLine);
 				tokens = new StringTokenizer(HeaderLine);
 				if (tokens.hasMoreTokens()) {
-					String headerAttr = tokens.nextToken(); //descobre qual é o atributo daquela linha
+					String headerAttr = tokens.nextToken(); //descobre qual o atributo daquela linha
 					if (headerAttr.equals("Content-Length:")){
 						lengthVideo = Integer.parseInt(tokens.nextToken());
 					}
@@ -274,7 +276,7 @@ public class Client {
 				return lengthVideo;
 			}
 			
-			//return 0; //não era pra acontecer, mas né...
+			//return 0; //nao era pra acontecer, mas ne...
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -291,6 +293,7 @@ public class Client {
 	    try {
 	    	String methodLine = "GET " + VideoFileName + " HTTP/1.0" + CRLF;
 		    System.out.print(methodLine);
+		    //if (HTTPOutputStream == null) { System.out.println("null");}
 			write_line_output_stream(methodLine, HTTPOutputStream);
 			String hostLine = "Host: " + ServerHost + CRLF;
 			System.out.print(hostLine);
