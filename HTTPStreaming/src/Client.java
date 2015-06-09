@@ -44,6 +44,7 @@ public class Client {
     static OutputStream HTTPOutputStream;
     static String VideoFileName; //video file to request to the server
     static int HTTP_SND_PORT = 80;
+    static int videoSize;
     
     static String ServerHost;
     final static String CRLF = "\r\n";
@@ -173,9 +174,26 @@ public class Client {
 	        
 	        if (state == INIT)
 	        {
-	        	state = READY;
-	        	System.out.println(state);
-	        }//else if state != INIT then do nothing
+	        	System.out.println("Oi estou no playbuttonlistener");
+	            //start the timer
+	        	send_HTTP_get_request();
+	        	length = parse_HTTP_response_header();
+	        	if (length != 0){
+	        		try {
+			        	//videoDecoder = new VideoStream(HTTPInputStream);
+			        	videoDecoder = new VideoStream("ehn");
+			        	//tentando fazer aqui um buffer
+			        	/*while (frameBuffer.size() != 20){
+			        		frameBuffer.add(videoDecoder.getnextframe());
+			        	}*/		
+			        	state = READY;
+	        		} catch (Exception ex){
+	        			ex.printStackTrace();
+	        		}
+		        	
+		        	System.out.println(state);
+	        	}
+	        } //else if state != INIT then do nothing
 	    }
 	}
 	
@@ -188,22 +206,9 @@ public class Client {
 	        try {
 		        if (state == READY)
 		        {
-		        	System.out.println("Oi estou no playbuttonlistener");
-		            //start the timer
-		        	send_HTTP_get_request();
-		        	length = parse_HTTP_response_header();
-		        	if (length != 0){
-			        	videoDecoder = new VideoStream(HTTPInputStream);
-			        	
-			        	//tentando fazer aqui um buffer
-			        	/*while (frameBuffer.size() != 20){
-			        		frameBuffer.add(videoDecoder.getnextframe());
-			        	}*/
-			        	
-			        	timer.start();
-		        		state = PLAYING;
-		        		
-		        	}
+	        		timer.start();
+	        		state = PLAYING;
+	        		
 		        }//else if state != READY then do nothing
 			} catch (Exception e2) {
 				e2.printStackTrace();
@@ -223,6 +228,7 @@ public class Client {
 	        if (state == PLAYING)
 	        {		        	
 	        	timer.stop();
+	        	state = READY;
 	        }
 	        //else if state != PLAYING then do nothing
 	    }
@@ -259,8 +265,7 @@ public class Client {
 	    			
 					//frameBuffer.add(videoDecoder.getnextframe());
 					Frame frame = videoDecoder.getnextframe();
-	    			
-					//get an Image object from the payload bitstream
+	    			//get an Image object from the payload bitstream
 					Toolkit toolkit = Toolkit.getDefaultToolkit();
 		            //Image image = toolkit.createImage(frame, 0, frame_len);
 		            Image image = toolkit.createImage(frame.getImageData(), 0, frame.getLength());

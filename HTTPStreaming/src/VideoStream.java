@@ -13,7 +13,7 @@ public class VideoStream {
     public VideoStream(String filename) throws Exception{
         
         //init variables
-        fis = new FileInputStream(filename);
+        fis = new FileInputStream("D:/UFC/GitHub/VideoStreaming/HTTPStreaming/video/pacote2"); // o que pode dar errado
         frame_nb = 0;
     }
     
@@ -53,6 +53,11 @@ public class VideoStream {
         //read current frame length
         fis.read(frame_length,0,5);
         
+        for (int i = 0; i < 5; i++){
+        	System.out.print(frame_length[i] + " ");
+        }
+        System.out.println("");
+        
         //transform frame_length to integer
         length_string = new String(frame_length);
         System.out.println(length_string + " length string");
@@ -60,8 +65,8 @@ public class VideoStream {
         System.out.println(length + " length number");
        
         byte[] frame = new byte[length];
-        fis.read(frame,0,length);
-        
+        int read_bytes = fis.read(frame,0,length);
+        System.out.println("read bytes foi: " + read_bytes);
         return new Frame(frame, length);
     }
     
