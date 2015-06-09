@@ -1,23 +1,15 @@
-/* ------------------
- Client
- usage: java Client [Server hostname] [Video file requested]
- ---------------------- */
-
+//Usage: HTTPClient [Requested Manifest]
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.List;
-import java.util.concurrent.*;
 import java.awt.*;
 import java.awt.event.*;
 
 import javax.swing.*;
 import javax.swing.Timer;
 
-
-public class Client {
-
-    //GUI
+public class HTTPClient {
+	//GUI
     //----
     JFrame f = new JFrame("Client");
     JButton setupButton = new JButton("Setup");
@@ -31,7 +23,6 @@ public class Client {
     
     //HTTP
     Timer timer; //timer used to read from buffer
-    byte[] buf; //buffer used to store data received from the server
     Integer length; //video duration
     
     final static int INIT = 0;
@@ -39,7 +30,7 @@ public class Client {
     final static int PLAYING = 2;
     final static int PAUSED = 3;
     static int state = -1; //state == INIT or READY or PLAYING
-    Socket HTTPsocket; //socket used to send/receive HTTP
+    static Socket HTTPsocket; //socket used to send/receive HTTP
     static InputStream HTTPInputStream;
     static OutputStream HTTPOutputStream;
     static String VideoFileName; //video file to request to the server
@@ -48,13 +39,14 @@ public class Client {
     static String ServerHost;
     final static String CRLF = "\r\n";
     
-    //Decoder do vídeo
+    //Decoder do video
     static VideoStream videoDecoder;
     
-    static //Buffer de frames
-    LinkedList<Frame> frameBuffer;
+    //Buffer de frames
+    static LinkedList<Frame> frameBuffer;
+    static boolean bufferize = false;
     
-    public Client() {
+    public HTTPClient() {
         
         //build GUI
         //--------------------------
@@ -97,9 +89,6 @@ public class Client {
         timer.setInitialDelay(0);
         timer.setCoalesce(true);
         
-        //allocate enough memory for the buffer used to receive data from the server
-        buf = new byte[15000];
-        
         frameBuffer = new LinkedList<>();
     }
 
@@ -108,12 +97,9 @@ public class Client {
 	//------------------------------------
 	public static void main(String argv[]) throws Exception
 	{
-	    //Create a Client object
-	    Client theClient = new Client();
-	    
-	    //get server RTSP port and IP address from the command line
-	    //------------------
-	    ServerHost = argv[0];
+		Client theClient = new Client();
+	    //get server id
+		ServerHost = argv[0];
 	    InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
 	    
 	    //get video filename to request:
@@ -122,35 +108,27 @@ public class Client {
 	    
 	    try 
 	    {
-	    	theClient.HTTPsocket = new Socket(ServerIPAddr, HTTP_SND_PORT);
-        	HTTPInputStream = theClient.HTTPsocket.getInputStream();
-        	HTTPOutputStream = theClient.HTTPsocket.getOutputStream();
+	    	HTTPsocket = new Socket(ServerIPAddr, HTTP_SND_PORT);
+        	HTTPInputStream = HTTPsocket.getInputStream();
+        	HTTPOutputStream = HTTPsocket.getOutputStream();
         	state = INIT;
+        	System.out.println(state);
 	    } 
 	    catch(Exception e) 
 	    { 
 	    	e.printStackTrace();
 	    }
 	    
-	    /*System.out.println("Oi estou na main");
-	    
-	    while(true){
-	    	if (state == INIT){
-	    		System.out.println("Estou no init");
-	    	}
-	    	if (state == PLAYING){
-	    		System.out.println("Ainda estou aqui na main!");
-	    	}
-	    }*/
+	    //System.out.println("Oi estou na main");
 	    
 	    //Getting the frames 
 	    while(true){
 	    	 if (state == PLAYING || state == PAUSED){
 	    		 try {
 	    			 frameBuffer.add(videoDecoder.getnextframe());
-	    			 /*if (bufferize){
+	    			 if (bufferize){
 	    				 bufferize = false;
-	    			 }*/
+	    			 }
 	    		 } catch (Exception e){
 	    			 e.printStackTrace();
 	    		 }
@@ -169,7 +147,7 @@ public class Client {
 	class setupButtonListener implements ActionListener{
 	    public void actionPerformed(ActionEvent e){
 	        
-	        //System.out.println("Setup Button pressed !");
+	        System.out.println("Setup Button pressed !");
 	        
 	        if (state == INIT)
 	        {
@@ -188,20 +166,18 @@ public class Client {
 	        try {
 		        if (state == READY)
 		        {
-		        	System.out.println("Oi estou no playbuttonlistener");
-		            //start the timer
 		        	send_HTTP_get_request();
 		        	length = parse_HTTP_response_header();
 		        	if (length != 0){
+		        		
 			        	videoDecoder = new VideoStream(HTTPInputStream);
-			        	
-			        	//tentando fazer aqui um buffer
-			        	/*while (frameBuffer.size() != 20){
-			        		frameBuffer.add(videoDecoder.getnextframe());
-			        	}*/
-			        	
-			        	timer.start();
+			        	//timer.start();
 		        		state = PLAYING;
+		        		while (frameBuffer.size() < 20){
+		        			frameBuffer.add(videoDecoder.getnextframe());
+		        		}
+		        		bufferize = true;
+		        		timer.start();
 		        		
 		        	}
 		        }//else if state != READY then do nothing
@@ -255,10 +231,10 @@ public class Client {
 	    		try {
 	    			//byte[] frame;
 					//int frame_len = videoDecoder.getnextframe(frame);
-					//Frame frame = frameBuffer.poll();
+					Frame frame = frameBuffer.poll();
 	    			
 					//frameBuffer.add(videoDecoder.getnextframe());
-					Frame frame = videoDecoder.getnextframe();
+					//Frame frame = videoDecoder.getnextframe();
 	    			
 					//get an Image object from the payload bitstream
 					Toolkit toolkit = Toolkit.getDefaultToolkit();
