@@ -23,7 +23,7 @@ public class Server extends JFrame {
 	static InputStream clientInputStream;
     static OutputStream clientOutputStream; 
     InetAddress ClientIPAddr; //Client IP address
-    static int HTTP_LISTENING_PORT = 80;
+    static int HTTP_LISTENING_PORT = 8000;
     
     //GUI:
     //----------------
@@ -35,12 +35,7 @@ public class Server extends JFrame {
     int totalframes = 0; //total number of frames to stop the video
     static VideoStream video; //VideoStream object used to access video frames
     
-    Timer timer; //timer used to send the images at the video frame rate
-    byte[] buf; //buffer used to store the images to send to the client
-    
-    //Setup variables
-    String manifestLocation; //localization of video manifest
-    
+    Timer timer; //timer used to send the images at the video frame rate 
     
     final static String CRLF = "\r\n";
     
@@ -102,6 +97,7 @@ public class Server extends JFrame {
 		//Wait for the client to return the desired file
 		while (true){
 			Request request = parse_HTTP_request(); //Faz alguma coisa com o request
+			send_HTTP_header_response(request);
 			if (request.getMethod().equals("GET")){
 				FileInputStream videoFile = new FileInputStream(request.getRequestedFile());
 				int readByte;
@@ -111,7 +107,6 @@ public class Server extends JFrame {
 				videoFile.close();
 			} 
 		}
-        
     }
     
     //----------------------
@@ -133,8 +128,18 @@ public class Server extends JFrame {
     	return null;
     }
     
-    public static void send_HTTP_header_response(int statusCode){
-    	
+    public static void send_HTTP_header_response(Request request){
+    	try {
+	    	if (request.getMethod().equals("GET")){
+	    		String response = "HTTP/1.1 200 OK" + CRLF;
+    			write_line_output_stream(response, clientOutputStream);
+    			response = "" + CRLF;
+    			write_line_output_stream(response, clientOutputStream);
+	    	}
+    	} catch (IOException e) {
+			e.printStackTrace();
+		}
+	
     }
     
 	public static String read_line_input_stream(InputStream stream) throws IOException{

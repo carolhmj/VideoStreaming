@@ -40,7 +40,7 @@ public class Client {
     static InputStream HTTPInputStream;
     static OutputStream HTTPOutputStream;
     static String VideoFileName; //video file to request to the server
-    static int HTTP_SND_PORT = 80;
+    static int HTTP_SND_PORT = 8000;
     
     static int videoSize;
     static int readUntilNow;
@@ -93,7 +93,7 @@ public class Client {
         
         //init timer
         //--------------------------
-        timer = new Timer(20, new timerListener());
+        timer = new Timer(33, new timerListener());
         timer.setInitialDelay(0);
         timer.setCoalesce(true);
         
@@ -147,9 +147,9 @@ public class Client {
 	        {
 	        	//start the timer
 	        	send_HTTP_get_request();
-	        	videoSize = parse_HTTP_response_header();
+	        	int response = parse_HTTP_response_header();
 	        	System.out.println("videoSize " + videoSize);
-	        	if (videoSize != 0){
+	        	if (response == 200){
 	        		try {
 			        	videoDecoder = new VideoStream(HTTPInputStream);		
 			        	state = READY;
@@ -230,20 +230,22 @@ public class Client {
 	    			if (frame != null){
 		    			readUntilNow += frame.getLength();
 		    			System.out.println("read until now: " + readUntilNow);
-		    			if (readUntilNow == videoSize){
+/*		    			if (readUntilNow == videoSize){
 		    				state = INIT;
 		    				timer.stop();
-		    			} else {
-			    			//get an Image object from the payload bitstream
-							Toolkit toolkit = Toolkit.getDefaultToolkit();
-				            //Image image = toolkit.createImage(frame, 0, frame_len);
-				            Image image = toolkit.createImage(frame.getImageData(), 0, frame.getLength());
-							
-		
-				            //display the image as an ImageIcon object
-				            icon = new ImageIcon(image);
-				            iconLabel.setIcon(icon);
 		    			}
+*/			    		//get an Image object from the payload bitstream
+						Toolkit toolkit = Toolkit.getDefaultToolkit();
+			            //Image image = toolkit.createImage(frame, 0, frame_len);
+			            Image image = toolkit.createImage(frame.getImageData(), 0, frame.getLength());
+	
+			            //display the image as an ImageIcon object
+			            icon = new ImageIcon(image);
+			            iconLabel.setIcon(icon);
+	    			}
+	    			else{
+	    				state = INIT;
+	    				timer.stop();
 	    			}
 				} catch (Exception e1) {
 					e1.printStackTrace();
@@ -289,12 +291,7 @@ public class Client {
 				}
 			} while (!HeaderLine.equals(""));
 			
-			if (responseCode != 200){
-				System.out.println("Resposta HTTP: " + responseCode + " " + responseDesc);
-				return 0;
-			} else {
-				return lengthVideo;
-			}
+			return responseCode;
 			
 			//return 0; //nao era pra acontecer, mas ne...
 			
