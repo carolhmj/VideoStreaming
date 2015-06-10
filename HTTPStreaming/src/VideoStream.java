@@ -13,7 +13,7 @@ public class VideoStream {
     public VideoStream(String filename) throws Exception{
         
         //init variables
-        fis = new FileInputStream("D:/UFC/GitHub/VideoStreaming/HTTPStreaming/video/pacote2"); // o que pode dar errado
+        fis = new FileInputStream("./video/movie.Mjpeg"); // o que pode dar errado
         frame_nb = 0;
     }
     
@@ -40,12 +40,15 @@ public class VideoStream {
         System.out.println(length_string + " length string");
         length = Integer.parseInt(length_string);
         System.out.println(length + " length number");
-       
-        return(fis.read(frame,0,length));
+
+        return 0;
     }
     
     public Frame getnextframe() throws Exception
     {
+    	if (fis.available() == 0)
+    		return null;
+
         int length = 0;
         String length_string;
         byte[] frame_length = new byte[5];
@@ -53,20 +56,25 @@ public class VideoStream {
         //read current frame length
         fis.read(frame_length,0,5);
         
-        for (int i = 0; i < 5; i++){
-        	System.out.print(frame_length[i] + " ");
-        }
-        System.out.println("");
+//        for (int i = 0; i < 5; i++){
+//        	System.out.print(frame_length[i] + " ");
+//        }
+//        System.out.println("");
         
         //transform frame_length to integer
         length_string = new String(frame_length);
-        System.out.println(length_string + " length string");
+//        System.out.println(length_string + " length string");
         length = Integer.parseInt(length_string);
-        System.out.println(length + " length number");
+//        System.out.println(length + " length number");
        
         byte[] frame = new byte[length];
-        int read_bytes = fis.read(frame,0,length);
-        System.out.println("read bytes foi: " + read_bytes);
+        for (int i=0;i<length;i++) {
+	        int read_bytes = fis.read();
+	        if (read_bytes == -1)
+	        	throw new Exception("EHN!");
+	        frame[i] = (byte) read_bytes;
+        }
+        
         return new Frame(frame, length);
     }
     

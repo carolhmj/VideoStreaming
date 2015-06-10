@@ -6,8 +6,6 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.List;
-import java.util.concurrent.*;
 import java.awt.*;
 import java.awt.event.*;
 
@@ -114,11 +112,13 @@ public class Client {
 	    
 	    //get server RTSP port and IP address from the command line
 	    //------------------
-	    ServerHost = argv[0];
+//	    ServerHost = argv[0];
+	    ServerHost = "media.pearsoncmg.com";
 	    InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
 	    
 	    //get video filename to request:
-	    VideoFileName = argv[1];
+//	    VideoFileName = argv[1];
+	    VideoFileName = "/aw/aw_kurose_network_3/labs/lab7/movie.Mjpeg";
 	    System.out.println(VideoFileName + " requested video");
 	    
 	    try 
@@ -178,10 +178,11 @@ public class Client {
 	            //start the timer
 	        	send_HTTP_get_request();
 	        	length = parse_HTTP_response_header();
+	        	length = 1;
 	        	if (length != 0){
 	        		try {
-			        	//videoDecoder = new VideoStream(HTTPInputStream);
-			        	videoDecoder = new VideoStream("ehn");
+			        	videoDecoder = new VideoStream(HTTPInputStream);
+//			        	videoDecoder = new VideoStream("ehn");
 			        	//tentando fazer aqui um buffer
 			        	/*while (frameBuffer.size() != 20){
 			        		frameBuffer.add(videoDecoder.getnextframe());
@@ -265,6 +266,11 @@ public class Client {
 	    			
 					//frameBuffer.add(videoDecoder.getnextframe());
 					Frame frame = videoDecoder.getnextframe();
+					if (frame == null) {
+						timer.stop();
+						state = READY;
+						return;
+					}
 	    			//get an Image object from the payload bitstream
 					Toolkit toolkit = Toolkit.getDefaultToolkit();
 		            //Image image = toolkit.createImage(frame, 0, frame_len);
@@ -275,6 +281,7 @@ public class Client {
 		            iconLabel.setIcon(icon);
 				} catch (Exception e1) {
 					e1.printStackTrace();
+					System.exit(1);
 				}
 	       	    	
 	       
