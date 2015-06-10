@@ -6,8 +6,6 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.List;
-import java.util.concurrent.*;
 import java.awt.*;
 import java.awt.event.*;
 
@@ -31,7 +29,6 @@ public class Client {
     
     //HTTP
     Timer timer; //timer used to read from buffer
-    byte[] buf; //buffer used to store data received from the server
     Integer length; //video duration
     
     final static int INIT = 0;
@@ -52,8 +49,8 @@ public class Client {
     //Decoder do vídeo
     static VideoStream videoDecoder;
     
-    static //Buffer de frames
-    LinkedList<Frame> frameBuffer;
+    //Buffer de frames
+    static LinkedList<Frame> frameBuffer;
     
     public Client() {
         
@@ -98,9 +95,6 @@ public class Client {
         timer.setInitialDelay(0);
         timer.setCoalesce(true);
         
-        //allocate enough memory for the buffer used to receive data from the server
-        buf = new byte[15000];
-        
         frameBuffer = new LinkedList<>();
     }
 
@@ -144,20 +138,6 @@ public class Client {
 	    	}
 	    }*/
 	    
-	    //Getting the frames 
-	    while(true){
-	    	 if (state == PLAYING || state == PAUSED){
-	    		 try {
-	    			 frameBuffer.add(videoDecoder.getnextframe());
-	    			 /*if (bufferize){
-	    				 bufferize = false;
-	    			 }*/
-	    		 } catch (Exception e){
-	    			 e.printStackTrace();
-	    		 }
-	    	 } 
-	    }
-	    
 	}
 	
 	
@@ -180,12 +160,7 @@ public class Client {
 	        	length = parse_HTTP_response_header();
 	        	if (length != 0){
 	        		try {
-			        	//videoDecoder = new VideoStream(HTTPInputStream);
-			        	videoDecoder = new VideoStream("ehn");
-			        	//tentando fazer aqui um buffer
-			        	/*while (frameBuffer.size() != 20){
-			        		frameBuffer.add(videoDecoder.getnextframe());
-			        	}*/		
+			        	videoDecoder = new VideoStream("ehn");		
 			        	state = READY;
 	        		} catch (Exception ex){
 	        			ex.printStackTrace();
