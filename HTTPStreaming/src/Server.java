@@ -22,12 +22,28 @@ public class Server extends JFrame {
     static Socket client;
 	static InputStream clientInputStream;
     static OutputStream clientOutputStream; 
+<<<<<<< HEAD
     static int HTTP_LISTENING_PORT = 80;
+=======
+    InetAddress ClientIPAddr; //Client IP address
+    static int HTTP_LISTENING_PORT = 8000;
+>>>>>>> 61310def142d118d76f68fe9bde8a590532fcbed
     
     //GUI:
     //----------------
     JLabel label;
     
+<<<<<<< HEAD
+=======
+    //Video variables:
+    //----------------
+    int imagenb = 0; //image nb of the image currently transmitted
+    int totalframes = 0; //total number of frames to stop the video
+    static VideoStream video; //VideoStream object used to access video frames
+    
+    Timer timer; //timer used to send the images at the video frame rate 
+    
+>>>>>>> 61310def142d118d76f68fe9bde8a590532fcbed
     final static String CRLF = "\r\n";
     
     //--------------------------------
@@ -60,6 +76,7 @@ public class Server extends JFrame {
         
         //show GUI:
         theServer.pack();
+<<<<<<< HEAD
         theServer.setVisible(true);       
      
         while (true){
@@ -73,6 +90,36 @@ public class Server extends JFrame {
 			
 			//Wait for client request
 			Request request = parse_HTTP_request();
+=======
+        theServer.setVisible(true);
+        
+        
+        //Initiate TCP connection with the client for the RTSP session
+        server = new ServerSocket(HTTP_LISTENING_PORT);
+        client = server.accept();
+        server.close();
+        clientInputStream = client.getInputStream();
+        clientOutputStream = client.getOutputStream();
+        
+        //Get Client IP address
+        theServer.ClientIPAddr = client.getInetAddress();
+        
+        //Get Requested Manifest and send it to the client
+        //String requestedManifest = parse_HTTP_request();
+        //System.out.println(requestedManifest);
+        //send_HTTP_header_response(200);
+        //BufferedReader manifestReader = new BufferedReader(new FileReader(requestedManifest));
+        //FileReader manifestReader = new FileReader(requestedManifest);
+        //char[] line;
+		//while(manifestReader.read(line) != -1){
+        //	write_line_output_stream(new String(line), clientOutputStream);
+        //}
+		
+		//Wait for the client to return the desired file
+		while (true){
+			Request request = parse_HTTP_request(); //Faz alguma coisa com o request
+			send_HTTP_header_response(request);
+>>>>>>> 61310def142d118d76f68fe9bde8a590532fcbed
 			if (request.getMethod().equals("GET")){
 				FileInputStream videoFile = new FileInputStream(request.getRequestedFile());
 				int readByte;
@@ -84,7 +131,6 @@ public class Server extends JFrame {
 				
 			}
 		}
-        
     }
     
     //----------------------
@@ -106,8 +152,18 @@ public class Server extends JFrame {
     	return null;
     }
     
-    public static void send_HTTP_header_response(int statusCode){
-    	
+    public static void send_HTTP_header_response(Request request){
+    	try {
+	    	if (request.getMethod().equals("GET")){
+	    		String response = "HTTP/1.1 200 OK" + CRLF;
+    			write_line_output_stream(response, clientOutputStream);
+    			response = "" + CRLF;
+    			write_line_output_stream(response, clientOutputStream);
+	    	}
+    	} catch (IOException e) {
+			e.printStackTrace();
+		}
+	
     }
     
 	public static String read_line_input_stream(InputStream stream) throws IOException{
