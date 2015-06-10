@@ -29,7 +29,6 @@ public class Client {
     
     //HTTP
     Timer timer; //timer used to read from buffer
-    byte[] buf; //buffer used to store data received from the server
     Integer length; //video duration
     
     final static int INIT = 0;
@@ -42,7 +41,9 @@ public class Client {
     static OutputStream HTTPOutputStream;
     static String VideoFileName; //video file to request to the server
     static int HTTP_SND_PORT = 80;
+    
     static int videoSize;
+    static int readUntilNow;
     
     static String ServerHost;
     final static String CRLF = "\r\n";
@@ -50,8 +51,8 @@ public class Client {
     //Decoder do vídeo
     static VideoStream videoDecoder;
     
-    static //Buffer de frames
-    LinkedList<Frame> frameBuffer;
+    //Buffer de frames
+    static LinkedList<Frame> frameBuffer;
     
     public Client() {
         
@@ -96,9 +97,6 @@ public class Client {
         timer.setInitialDelay(0);
         timer.setCoalesce(true);
         
-        //allocate enough memory for the buffer used to receive data from the server
-        buf = new byte[15000];
-        
         frameBuffer = new LinkedList<>();
     }
 
@@ -112,13 +110,11 @@ public class Client {
 	    
 	    //get server RTSP port and IP address from the command line
 	    //------------------
-//	    ServerHost = argv[0];
-	    ServerHost = "media.pearsoncmg.com";
+	    ServerHost = argv[0];
 	    InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
 	    
 	    //get video filename to request:
-//	    VideoFileName = argv[1];
-	    VideoFileName = "/aw/aw_kurose_network_3/labs/lab7/movie.Mjpeg";
+	    VideoFileName = argv[1];
 	    System.out.println(VideoFileName + " requested video");
 	    
 	    try 
@@ -133,31 +129,6 @@ public class Client {
 	    	e.printStackTrace();
 	    }
 	    
-	    /*System.out.println("Oi estou na main");
-	    
-	    while(true){
-	    	if (state == INIT){
-	    		System.out.println("Estou no init");
-	    	}
-	    	if (state == PLAYING){
-	    		System.out.println("Ainda estou aqui na main!");
-	    	}
-	    }*/
-	    
-	    //Getting the frames 
-	    while(true){
-	    	 if (state == PLAYING || state == PAUSED){
-	    		 try {
-	    			 frameBuffer.add(videoDecoder.getnextframe());
-	    			 /*if (bufferize){
-	    				 bufferize = false;
-	    			 }*/
-	    		 } catch (Exception e){
-	    			 e.printStackTrace();
-	    		 }
-	    	 } 
-	    }
-	    
 	}
 	
 	
@@ -170,23 +141,17 @@ public class Client {
 	class setupButtonListener implements ActionListener{
 	    public void actionPerformed(ActionEvent e){
 	        
-	        //System.out.println("Setup Button pressed !");
+	        System.out.println("Setup Button pressed !");
 	        
 	        if (state == INIT)
 	        {
-	        	System.out.println("Oi estou no playbuttonlistener");
-	            //start the timer
+	        	//start the timer
 	        	send_HTTP_get_request();
-	        	length = parse_HTTP_response_header();
-	        	length = 1;
-	        	if (length != 0){
+	        	videoSize = parse_HTTP_response_header();
+	        	System.out.println("videoSize " + videoSize);
+	        	if (videoSize != 0){
 	        		try {
-			        	videoDecoder = new VideoStream(HTTPInputStream);
-//			        	videoDecoder = new VideoStream("ehn");
-			        	//tentando fazer aqui um buffer
-			        	/*while (frameBuffer.size() != 20){
-			        		frameBuffer.add(videoDecoder.getnextframe());
-			        	}*/		
+			        	videoDecoder = new VideoStream(HTTPInputStream);		
 			        	state = READY;
 	        		} catch (Exception ex){
 	        			ex.printStackTrace();
@@ -260,28 +225,28 @@ public class Client {
 	    public void actionPerformed(ActionEvent e) {
 	        	    		
 	    		try {
-	    			//byte[] frame;
-					//int frame_len = videoDecoder.getnextframe(frame);
-					//Frame frame = frameBuffer.poll();
 	    			
-					//frameBuffer.add(videoDecoder.getnextframe());
-					Frame frame = videoDecoder.getnextframe();
-					if (frame == null) {
-						timer.stop();
-						state = READY;
-						return;
-					}
-	    			//get an Image object from the payload bitstream
-					Toolkit toolkit = Toolkit.getDefaultToolkit();
-		            //Image image = toolkit.createImage(frame, 0, frame_len);
-		            Image image = toolkit.createImage(frame.getImageData(), 0, frame.getLength());
-					
-		            //display the image as an ImageIcon object
-		            icon = new ImageIcon(image);
-		            iconLabel.setIcon(icon);
+	    			Frame frame = videoDecoder.getnextframe();
+	    			if (frame != null){
+		    			readUntilNow += frame.getLength();
+		    			System.out.println("read until now: " + readUntilNow);
+		    			if (readUntilNow == videoSize){
+		    				state = INIT;
+		    				timer.stop();
+		    			} else {
+			    			//get an Image object from the payload bitstream
+							Toolkit toolkit = Toolkit.getDefaultToolkit();
+				            //Image image = toolkit.createImage(frame, 0, frame_len);
+				            Image image = toolkit.createImage(frame.getImageData(), 0, frame.getLength());
+							
+		
+				            //display the image as an ImageIcon object
+				            icon = new ImageIcon(image);
+				            iconLabel.setIcon(icon);
+		    			}
+	    			}
 				} catch (Exception e1) {
 					e1.printStackTrace();
-					System.exit(1);
 				}
 	       	    	
 	       
