@@ -12,8 +12,8 @@ import java.util.StringTokenizer;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.Timer;
 
+import com.sun.xml.internal.ws.org.objectweb.asm.Label;
 
 public class Server extends JFrame {
     //HTTP variables:
@@ -22,25 +22,11 @@ public class Server extends JFrame {
     static Socket client;
 	static InputStream clientInputStream;
     static OutputStream clientOutputStream; 
-    InetAddress ClientIPAddr; //Client IP address
     static int HTTP_LISTENING_PORT = 80;
     
     //GUI:
     //----------------
     JLabel label;
-    
-    //Video variables:
-    //----------------
-    int imagenb = 0; //image nb of the image currently transmitted
-    int totalframes = 0; //total number of frames to stop the video
-    static VideoStream video; //VideoStream object used to access video frames
-    
-    Timer timer; //timer used to send the images at the video frame rate
-    byte[] buf; //buffer used to store the images to send to the client
-    
-    //Setup variables
-    String manifestLocation; //localization of video manifest
-    
     
     final static String CRLF = "\r\n";
     
@@ -56,12 +42,11 @@ public class Server extends JFrame {
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
                 //stop the timer and exit
-                timer.stop();
                 System.exit(0);
             }});
         
         //GUI:
-        label = new JLabel("Send frame #        ", JLabel.CENTER);
+        label = new JLabel("Waiting for client request...", JLabel.CENTER);
         getContentPane().add(label, BorderLayout.CENTER);
     }
     
@@ -75,33 +60,19 @@ public class Server extends JFrame {
         
         //show GUI:
         theServer.pack();
-        theServer.setVisible(true);
-        
-        
-        //Initiate TCP connection with the client for the RTSP session
-        server = new ServerSocket(HTTP_LISTENING_PORT);
-        client = server.accept();
-        server.close();
-        clientInputStream = client.getInputStream();
-        clientOutputStream = client.getOutputStream();
-        
-        //Get Client IP address
-        theServer.ClientIPAddr = client.getInetAddress();
-        
-        //Get Requested Manifest and send it to the client
-        //String requestedManifest = parse_HTTP_request();
-        //System.out.println(requestedManifest);
-        //send_HTTP_header_response(200);
-        //BufferedReader manifestReader = new BufferedReader(new FileReader(requestedManifest));
-        //FileReader manifestReader = new FileReader(requestedManifest);
-        //char[] line;
-		//while(manifestReader.read(line) != -1){
-        //	write_line_output_stream(new String(line), clientOutputStream);
-        //}
-		
-		//Wait for the client to return the desired file
-		while (true){
-			Request request = parse_HTTP_request(); //Faz alguma coisa com o request
+        theServer.setVisible(true);       
+     
+        while (true){
+        	//Initiate TCP connection with the client
+            server = new ServerSocket(HTTP_LISTENING_PORT);
+            client = server.accept();
+            server.close();
+            clientInputStream = client.getInputStream();
+            clientOutputStream = client.getOutputStream();
+        	theServer.label.setText("Got connection request from client" + client.getInetAddress().getHostAddress());
+			
+			//Wait for client request
+			Request request = parse_HTTP_request();
 			if (request.getMethod().equals("GET")){
 				FileInputStream videoFile = new FileInputStream(request.getRequestedFile());
 				int readByte;
@@ -109,7 +80,9 @@ public class Server extends JFrame {
 					clientOutputStream.write(readByte);
 				}
 				videoFile.close();
-			} 
+			} else {
+				
+			}
 		}
         
     }
@@ -141,7 +114,7 @@ public class Server extends JFrame {
 		String constructedLine = "";
 		String readChar;
 		byte[] byteChar = new byte[1];
-		Boolean carrReturn = false;
+		boolean carrReturn = false;
 		while (stream.read(byteChar) == 1){
 			readChar = new String(byteChar);
 			if (readChar.matches("\r")) {
