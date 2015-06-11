@@ -2,8 +2,6 @@
 //usage: java Server
 
 import java.awt.BorderLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
@@ -12,7 +10,6 @@ import java.util.StringTokenizer;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.Timer;
 
 
 public class Server extends JFrame {
@@ -23,19 +20,11 @@ public class Server extends JFrame {
 	static InputStream clientInputStream;
     static OutputStream clientOutputStream; 
     InetAddress ClientIPAddr; //Client IP address
-    static int HTTP_LISTENING_PORT = 8000;
+    static int LISTENING_PORT = 8000;
     
     //GUI:
     //----------------
     JLabel label;
-    
-    //Video variables:
-    //----------------
-    int imagenb = 0; //image nb of the image currently transmitted
-    int totalframes = 0; //total number of frames to stop the video
-    static VideoStream video; //VideoStream object used to access video frames
-    
-    Timer timer; //timer used to send the images at the video frame rate 
     
     final static String CRLF = "\r\n";
     
@@ -51,12 +40,11 @@ public class Server extends JFrame {
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
                 //stop the timer and exit
-                timer.stop();
                 System.exit(0);
             }});
         
         //GUI:
-        label = new JLabel("Send frame #        ", JLabel.CENTER);
+        label = new JLabel("Listening on port " + LISTENING_PORT + "...", JLabel.CENTER);
         getContentPane().add(label, BorderLayout.CENTER);
     }
     
@@ -73,8 +61,8 @@ public class Server extends JFrame {
         theServer.setVisible(true);
         
         
-        //Initiate TCP connection with the client for the RTSP session
-        server = new ServerSocket(HTTP_LISTENING_PORT);
+        //Initiate TCP connection with the client
+        server = new ServerSocket(LISTENING_PORT);
         client = server.accept();
         server.close();
         clientInputStream = client.getInputStream();
@@ -82,30 +70,35 @@ public class Server extends JFrame {
         
         //Get Client IP address
         theServer.ClientIPAddr = client.getInetAddress();
+		theServer.label.setText("Received connection request from client " + theServer.ClientIPAddr.getHostAddress());
         
-        //Get Requested Manifest and send it to the client
-        //String requestedManifest = parse_HTTP_request();
-        //System.out.println(requestedManifest);
-        //send_HTTP_header_response(200);
-        //BufferedReader manifestReader = new BufferedReader(new FileReader(requestedManifest));
-        //FileReader manifestReader = new FileReader(requestedManifest);
-        //char[] line;
-		//while(manifestReader.read(line) != -1){
-        //	write_line_output_stream(new String(line), clientOutputStream);
-        //}
-		
 		//Wait for the client to return the desired file
 		while (true){
-			Request request = parse_HTTP_request(); //Faz alguma coisa com o request
-			send_HTTP_header_response(request);
+			Request request = parse_HTTP_request();
 			if (request.getMethod().equals("GET")){
-				FileInputStream videoFile = new FileInputStream(request.getRequestedFile());
-				int readByte;
-				while ((readByte = videoFile.read()) != -1){
-					clientOutputStream.write(readByte);
+				try{
+					//If file exists and the server has permission to read, send OK response
+					FileInputStream videoFile = new FileInputStream(request.getRequestedFile());
+					theServer.label.setText("Sending OK response to requested file " + request.getRequestedFile());
+					send_HTTP_header_response(200);
+					theServer.label.setText("Sending file...");
+					int readByte;
+					while ((readByte = videoFile.read()) != -1){
+						clientOutputStream.write(readByte);
+					}
+					videoFile.close();
+					
+				} catch (Exception e) {
+					//else, send file not found status code
+					theServer.label.setText("Sending file not found response to requested file " + request.getRequestedFile());
+					send_HTTP_header_response(404);
 				}
-				videoFile.close();
-			} 
+				
+			} else {
+				//If the request wasn't a GET
+				theServer.label.setText("Sending bad request response");
+				send_HTTP_header_response(400);
+			}
 		}
     }
     
@@ -128,14 +121,22 @@ public class Server extends JFrame {
     	return null;
     }
     
-    public static void send_HTTP_header_response(Request request){
+    public static void send_HTTP_header_response(int code){
     	try {
-	    	if (request.getMethod().equals("GET")){
-	    		String response = "HTTP/1.1 200 OK" + CRLF;
-    			write_line_output_stream(response, clientOutputStream);
-    			response = "" + CRLF;
-    			write_line_output_stream(response, clientOutputStream);
+    		String response;
+	    	if (code == 200){
+	    		response = "HTTP/1.0 200 OK" + CRLF;
+	    	} else if (code == 404){
+	    		response = "HTTP/1.0 404 Not Found" + CRLF;
+	    	} else if (code == 403){
+	    		response = "HTTP/1.0 403 Forbidden" + CRLF;
+	    	} else {
+	    		response = "HTTP/1.0 400 Bad Request" + CRLF;
 	    	}
+			write_line_output_stream(response, clientOutputStream);
+			response = "" + CRLF;
+			write_line_output_stream(response, clientOutputStream);
+			
     	} catch (IOException e) {
 			e.printStackTrace();
 		}
