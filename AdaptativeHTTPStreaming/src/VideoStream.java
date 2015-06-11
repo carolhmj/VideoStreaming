@@ -1,3 +1,4 @@
+
 //VideoStream
 
 import java.io.*;
@@ -23,6 +24,10 @@ public class VideoStream {
     	frame_nb = 0;
     }
     
+    public VideoStream(File file) throws Exception{
+    	fis = new FileInputStream(file);
+    }
+    
     //-----------------------------------
     // getnextframe
     //returns the next frame as an array of byte and the size of the frame
@@ -42,13 +47,15 @@ public class VideoStream {
         length = Integer.parseInt(length_string);
         //System.out.println(length + " length number");
        
+        frame_nb++;
         return(fis.read(frame,0,length));
     }
     
     public Frame getnextframe() throws Exception
     {
-    	if (fis.available() == 0)
+    	if (fis.available() == 0) {
     		return null;
+    	}
     	
         int length = 0;
         String length_string;
@@ -75,8 +82,17 @@ public class VideoStream {
 	        	throw new Exception("EOF");
 	        frame[i] = (byte) read_bytes;
         }
+
         
+        frame_nb++;
         return new Frame(frame, length);
     }
     
+    public void skipFrames(long nframes) throws Exception{
+    	long readFrames = 0;
+    	
+    	while (readFrames <= nframes){
+    		getnextframe(); //calls getnextframe the needed number of times and ignores result
+    	}
+    }
 }
