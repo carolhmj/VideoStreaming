@@ -28,6 +28,7 @@ public class Client {
     JLabel iconLabel = new JLabel();
     ImageIcon icon;
     
+    
     //HTTP
     Timer timer; //timer used to read from buffer
     Integer length; //video duration
@@ -55,6 +56,8 @@ public class Client {
     
     //Buffer de frames
     static LinkedList<Frame> frameBuffer;
+    static String[] resolutions = {"A","B","C"};
+    static String currentResolution; 
     
     public Client() {
         
@@ -79,19 +82,21 @@ public class Client {
         playButton.addActionListener(new playButtonListener());
         pauseButton.addActionListener(new pauseButtonListener());
         tearButton.addActionListener(new tearButtonListener());
-        
+        resolutionButton.addActionListener(new resolutionButtonListener());
+
         //Image display label
         iconLabel.setIcon(null);
-        
+        iconLabel.setHorizontalAlignment(SwingConstants.CENTER);
         //frame layout
         mainPanel.setLayout(null);
         mainPanel.add(iconLabel);
         mainPanel.add(buttonPanel);
-        iconLabel.setBounds(0,0,380,280);
-        buttonPanel.setBounds(0,280,380,50);
-        
+        iconLabel.setBounds(0,0,480,280);
+        buttonPanel.setBounds(0,280,500,50);
+/*        JOptionPane.showMessageDialog(f,
+        	    "Eggs are not supposed to be green.");*/
         f.getContentPane().add(mainPanel, BorderLayout.CENTER);
-        f.setSize(new Dimension(390,370));
+        f.setSize(new Dimension(500,370));
         f.setVisible(true);
         
         //init timer
@@ -230,6 +235,15 @@ public class Client {
 	    }
 	}
 	
+	
+	class resolutionButtonListener implements ActionListener {
+		public void actionPerformed (ActionEvent e) {
+			System.out.println("Select resolutions!");
+			timer.stop();
+			currentResolution = (String) JOptionPane.showInputDialog(null,"Choose:","Select resolution",JOptionPane.QUESTION_MESSAGE,null,resolutions,resolutions[0]);
+			timer.start();
+		}
+	}
 	
 	//------------------------------------
 	//Handler for timer
