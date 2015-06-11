@@ -2,6 +2,7 @@
 //usage: java Server
 
 import java.awt.BorderLayout;
+import java.awt.Label;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
@@ -17,13 +18,6 @@ public class Server extends JFrame {
 	static InputStream clientInputStream;
 	static OutputStream clientOutputStream;
 	static int LISTENING_PORT = 8000;
-	
-	//State
-	final static int WAIT_CONNECTION = 1;
-	final static int WAIT_MANIFEST_REQ = 2;
-	final static int WAIT_FILE_REQ = 3;
-	final static int FILE_REQ = 4;
-	final static int SENDING_FILE = 5;
 	
 	//GUI
     JLabel label;
@@ -63,14 +57,23 @@ public class Server extends JFrame {
 	        clientInputStream = clientSocket.getInputStream();
 	        clientOutputStream = clientSocket.getOutputStream();
 	        
-			theServer.label.setText("Received connection request from client " + clientSocket.getInetAddress().getHostAddress());
+			theServer.label.setText("Received connection request from client " + clientSocket.getInetAddress().getHostAddress() + ". Now waiting for manifest request...");
 			
 			//Send manifest and wait a positive answer
-			int resp = 0;
+			RequestFile manifReq = null;
 			do {
-				resp = manifest_request_response();
-			} while (resp != 200);
+				manifReq = manifest_request_response();
+			} while (manifReq == null);
 			
+			theServer.label.setText("Client solicited manifest " + manifReq.getRequestFile().getPath() + ". Now sending...");
+			
+			//Got manifest, now sending...
+			FileInputStream manifestSending = new FileInputStream(manifReq.getRequestFile());
+			int readByteMan;
+			while ((readByteMan = manifestSending.read()) != -1){
+				clientOutputStream.write(readByteMan);
+			}
+			manifestSending.close();
 			
 			//Manifest was sent, now waiting for requested file
 			RequestFile reqFile;
@@ -78,29 +81,32 @@ public class Server extends JFrame {
 				reqFile = video_request_response();
 			} while (reqFile == null);
 		
+			theServer.label.setText("Client solicited video " + manifReq.getRequestFile().getPath() + ". Now sending...");
+			VideoStream videoSend = new VideoStream(reqFile.getRequestFile());
+			videoSend.skipFrames(reqFile.getStart());
 			
-			FileInputStream videoSend = new FileInputStream(reqFile.getRequestFile());
-			videoSend.skip(reqFile.getStartByte());
-			int readByte;
-			while ((readByte = videoSend.read()) != -1){
+			int readByteVideo;
+			while ((readByteVideo = videoSend.fis.read()) != -1){
 				if (clientInputStream.available() > 0) {
 					do {
 						reqFile = video_request_response();
 					} while (reqFile == null);
-					videoSend = new FileInputStream(reqFile.getRequestFile());
-					videoSend.skip(reqFile.getStartByte());
+					theServer.label.setText("Client changed solicited video " + manifReq.getRequestFile().getPath() + ". Now sending...");
+					videoSend = new VideoStream(reqFile.getRequestFile());
+					videoSend.skipFrames(reqFile.getStart());
 				}
-				clientOutputStream.write(readByte);
+				clientOutputStream.write(readByteVideo);
 			}
 			
+			theServer.label.setText("Sent video successfully");
 		
         } catch (Exception e){
-        	System.out.println("Error connecting to client!");
+        	theServer.label.setText("Error connecting to client!");
         	e.printStackTrace();
         }
     }
     
-    public static int manifest_request_response() throws IOException {
+    public static RequestFile manifest_request_response() throws IOException {
 		Request manifReq;
 		int responseCode = 0;
 	
@@ -109,6 +115,12 @@ public class Server extends JFrame {
 			try {
 				File manifest = new File(manifReq.getRequestedFile());
 				
+				if (!manifest.exists() || !manifest.canRead()){
+					responseCode = 404;
+					send_HTTP_header_response(404);
+					return null;
+				}
+				
 				long len = manifest.length();
 				String extraHeaders = new String(); 
 				extraHeaders.concat("Content-Length: " + String.valueOf(len) + CRLF);
@@ -116,24 +128,17 @@ public class Server extends JFrame {
 				responseCode = 200;
 				send_HTTP_header_response(responseCode, extraHeaders);
 				
-				FileInputStream manifestSending = new FileInputStream(manifest);
-				int readByte;
-				while ((readByte = manifestSending.read()) != -1){
-					clientOutputStream.write(readByte);
-				}
-				
-				manifestSending.close();
-				return responseCode;
+				return new RequestFile(0, manifest);
 				
 			} catch (Exception e){
 				responseCode = 404;
 				send_HTTP_header_response(responseCode);
-				return responseCode;
+				return null;
 			}
 		} else {
 			responseCode = 400;
 			send_HTTP_header_response(responseCode);
-			return responseCode;
+			return null;
 		}
 
 	

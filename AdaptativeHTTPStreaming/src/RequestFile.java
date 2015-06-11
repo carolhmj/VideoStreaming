@@ -2,15 +2,15 @@ import java.io.File;
 
 
 public class RequestFile {
-	long startByte;
+	long start;
 	File requestFile;
 	
-	public RequestFile(long startByte, File requestFile) {
-		this.startByte = startByte;
+	public RequestFile(long start, File requestFile) {
+		this.start = start;
 		this.requestFile = requestFile;
 	}
-	public long getStartByte() {
-		return startByte;
+	public long getStart() {
+		return start;
 	}
 	public File getRequestFile() {
 		return requestFile;
