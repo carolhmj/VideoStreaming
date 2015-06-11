@@ -1,3 +1,7 @@
+/RTPpacket.class
+/Server$1.class
+/Server.class
+/VideoStream.class
 /Client$1.class
 /Client$pauseButtonListener.class
 /Client$playButtonListener.class
@@ -5,7 +9,3 @@
 /Client$tearButtonListener.class
 /Client$timerListener.class
 /Client.class
-/RTPpacket.class
-/Server$1.class
-/Server.class
-/VideoStream.class
