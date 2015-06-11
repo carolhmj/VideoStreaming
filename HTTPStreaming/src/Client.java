@@ -1,6 +1,6 @@
 /* ------------------
  Client
- usage: java Client [Server hostname] [Video file requested]
+ usage: java Client [Server hostname] [Listening Port] [Video file requested]
  ---------------------- */
 
 import java.io.*;
@@ -29,25 +29,31 @@ public class Client {
     
     //HTTP
     Timer timer; //timer used to read from buffer
-    byte[] buf; //buffer used to store data received from the server
     Integer length; //video duration
     
     final static int INIT = 0;
     final static int READY = 1;
     final static int PLAYING = 2;
-    static int state; //state == INIT or READY or PLAYING
+    final static int PAUSED = 3;
+    static int state = -1; //state == INIT or READY or PLAYING
     Socket HTTPsocket; //socket used to send/receive HTTP
     static InputStream HTTPInputStream;
     static OutputStream HTTPOutputStream;
     static String VideoFileName; //video file to request to the server
-    static int HTTP_RCV_PORT = 25000;
-    static int HTTP_SND_PORT = 80;
+    //static int HTTP_SND_PORT = 8000;
+    static int port;
+    
+    static int videoSize;
+    static int readUntilNow;
     
     static String ServerHost;
     final static String CRLF = "\r\n";
     
     //Decoder do vídeo
-    VideoStream videoDecoder;
+    static VideoStream videoDecoder;
+    
+    //Buffer de frames
+    static LinkedList<Frame> frameBuffer;
     
     public Client() {
         
@@ -88,12 +94,11 @@ public class Client {
         
         //init timer
         //--------------------------
-        timer = new Timer(20, new timerListener());
+        timer = new Timer(33, new timerListener());
         timer.setInitialDelay(0);
         timer.setCoalesce(true);
         
-        //allocate enough memory for the buffer used to receive data from the server
-        buf = new byte[15000];
+        frameBuffer = new LinkedList<>();
     }
 
 	//------------------------------------
@@ -109,21 +114,23 @@ public class Client {
 	    ServerHost = argv[0];
 	    InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
 	    
+	    port = Integer.parseInt(argv[1]);
+	    
 	    //get video filename to request:
-	    VideoFileName = argv[1];
+	    VideoFileName = argv[2];
+	    System.out.println(VideoFileName + " requested video on port " + port);
 	    
 	    try 
 	    {
-	    	theClient.HTTPsocket = new Socket(ServerIPAddr, HTTP_SND_PORT);
+	    	theClient.HTTPsocket = new Socket(ServerIPAddr, port);
         	HTTPInputStream = theClient.HTTPsocket.getInputStream();
         	HTTPOutputStream = theClient.HTTPsocket.getOutputStream();
+        	state = INIT;
 	    } 
 	    catch(Exception e) 
 	    { 
 	    	e.printStackTrace();
 	    }
-	    state = INIT;
-	    
 	    
 	}
 	
@@ -137,20 +144,37 @@ public class Client {
 	class setupButtonListener implements ActionListener{
 	    public void actionPerformed(ActionEvent e){
 	        
-	        //System.out.println("Setup Button pressed !");
-	        
-	        if (state == INIT)
-	        {
-	        	send_HTTP_get_request();
-	        	length = parse_HTTP_response_header();
-	        	if (length != 0){
-	        		state = READY;
-	        	}
-	        	System.out.println(state);
-	        }//else if state != INIT then do nothing
+	        System.out.println("Setup Button pressed !");
+	        try{
+		        if (state == INIT)
+		        {
+		        	if (HTTPsocket.isClosed()) {
+		        		System.out.println("socket is closed");
+		        		//Re-send a connection request 
+		        		InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
+		        		HTTPsocket = new Socket(ServerIPAddr, port);
+		            	HTTPInputStream = HTTPsocket.getInputStream();
+		            	HTTPOutputStream = HTTPsocket.getOutputStream();
+		        	}
+		        	//start the timer
+		        	send_HTTP_get_request();
+		        	int response = parse_HTTP_response_header();
+		        	if (response == 200){
+		        		try {
+				        	videoDecoder = new VideoStream(HTTPInputStream);		
+				        	state = READY;
+		        		} catch (Exception ex){
+		        			ex.printStackTrace();
+		        		}
+			        	
+			        	System.out.println(state);
+		        	}
+		        } //else if state != INIT then do nothing
+	    } catch (Exception e1){
+	    	e1.printStackTrace();
 	    }
+	  }
 	}
-	
 	//Handler for Play button
 	//-----------------------
 	class playButtonListener implements ActionListener {
@@ -160,10 +184,9 @@ public class Client {
 	        try {
 		        if (state == READY)
 		        {
-		            //start the timer
-		        	videoDecoder = new VideoStream(HTTPInputStream);
-		        	timer.start();
-		        	state = PLAYING;
+	        		timer.start();
+	        		state = PLAYING;
+	        		
 		        }//else if state != READY then do nothing
 			} catch (Exception e2) {
 				e2.printStackTrace();
@@ -183,6 +206,7 @@ public class Client {
 	        if (state == PLAYING)
 	        {		        	
 	        	timer.stop();
+	        	state = READY;
 	        }
 	        //else if state != PLAYING then do nothing
 	    }
@@ -213,16 +237,25 @@ public class Client {
 	    public void actionPerformed(ActionEvent e) {
 	        	    		
 	    		try {
-	    			byte[] frame = null;
-					int frame_len = videoDecoder.getnextframe(frame);
-					
-					//get an Image object from the payload bitstream
-					Toolkit toolkit = Toolkit.getDefaultToolkit();
-		            Image image = toolkit.createImage(frame, 0, frame_len);
-		            
-		            //display the image as an ImageIcon object
-		            icon = new ImageIcon(image);
-		            iconLabel.setIcon(icon);
+	    			
+	    			Frame frame = videoDecoder.getnextframe();
+	    			if (frame != null){
+		    			readUntilNow += frame.getLength();
+		    			System.out.println("read until now: " + readUntilNow);
+			    		//get an Image object from the payload bitstream
+						Toolkit toolkit = Toolkit.getDefaultToolkit();
+			            //Image image = toolkit.createImage(frame, 0, frame_len);
+			            Image image = toolkit.createImage(frame.getImageData(), 0, frame.getLength());
+	
+			            //display the image as an ImageIcon object
+			            icon = new ImageIcon(image);
+			            iconLabel.setIcon(icon);
+	    			}
+	    			else{
+	    				state = INIT;
+	    				timer.stop();
+	    				HTTPsocket.close();
+	    			}
 				} catch (Exception e1) {
 					e1.printStackTrace();
 				}
@@ -246,35 +279,30 @@ public class Client {
 			
 			StringTokenizer tokens = new StringTokenizer(HeaderLine);
 			tokens.nextToken(); //Skip HTTP Version
-			Integer responseCode = Integer.parseInt(tokens.nextToken()); //Pega código de resposta
+			Integer responseCode = Integer.parseInt(tokens.nextToken()); //Pega codigo de resposta
 			String responseDesc = "";
 			for (int i = 0; i < tokens.countTokens(); i++){
-				responseDesc = responseDesc + " " + tokens.nextToken(); //Pega descrição do erro
+				responseDesc = responseDesc + " " + tokens.nextToken(); //Pega descricao do erro
 			} 
 			
-			//Agora vai ler as próximas linhas até encontrar uma linha que só tenha CRLF, encontra
-			//o comprimento do conteúdo e retorna esse valor!
+			//Agora vai ler as proximas linhas ate encontrar uma linha que so tenha CRLF, encontra
+			//o comprimento do conteudo e retorna esse valor!
 			Integer lengthVideo = 0;
 			do {
 				HeaderLine = read_line_input_stream(HTTPInputStream);
 				System.out.println(HeaderLine);
 				tokens = new StringTokenizer(HeaderLine);
 				if (tokens.hasMoreTokens()) {
-					String headerAttr = tokens.nextToken(); //descobre qual é o atributo daquela linha
+					String headerAttr = tokens.nextToken(); //descobre qual o atributo daquela linha
 					if (headerAttr.equals("Content-Length:")){
 						lengthVideo = Integer.parseInt(tokens.nextToken());
 					}
 				}
 			} while (!HeaderLine.equals(""));
 			
-			if (responseCode != 200){
-				System.out.println("Resposta HTTP: " + responseCode + " " + responseDesc);
-				return 0;
-			} else {
-				return lengthVideo;
-			}
+			return responseCode;
 			
-			//return 0; //não era pra acontecer, mas né...
+			//return 0; //nao era pra acontecer, mas ne...
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -291,6 +319,7 @@ public class Client {
 	    try {
 	    	String methodLine = "GET " + VideoFileName + " HTTP/1.0" + CRLF;
 		    System.out.print(methodLine);
+		    //if (HTTPOutputStream == null) { System.out.println("null");}
 			write_line_output_stream(methodLine, HTTPOutputStream);
 			String hostLine = "Host: " + ServerHost + CRLF;
 			System.out.print(hostLine);
