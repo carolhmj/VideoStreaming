@@ -1,3 +1,4 @@
+
 //VideoStream
 
 import java.io.*;
@@ -81,6 +82,7 @@ public class VideoStream {
 	        	throw new Exception("EOF");
 	        frame[i] = (byte) read_bytes;
         }
+
         
         frame_nb++;
         return new Frame(frame, length);
