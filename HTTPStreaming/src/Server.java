@@ -19,13 +19,12 @@ public class Server extends JFrame {
     static ServerSocket server;
     static Socket client;
 	static InputStream clientInputStream;
-    static OutputStream clientOutputStream; 
+    static OutputStream clientOutputStream;
     static int LISTENING_PORT = 8000;
     
     //GUI:
     //----------------
     JLabel label;
-
     final static String CRLF = "\r\n";
     
     //--------------------------------
