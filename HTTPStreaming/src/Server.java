@@ -11,6 +11,7 @@ import java.util.StringTokenizer;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 
+import com.sun.xml.internal.ws.org.objectweb.asm.Label;
 
 public class Server extends JFrame {
     //HTTP variables:
@@ -19,13 +20,12 @@ public class Server extends JFrame {
     static Socket client;
 	static InputStream clientInputStream;
     static OutputStream clientOutputStream; 
-    InetAddress ClientIPAddr; //Client IP address
     static int LISTENING_PORT = 8000;
     
     //GUI:
     //----------------
     JLabel label;
-    
+
     final static String CRLF = "\r\n";
     
     //--------------------------------
@@ -69,12 +69,11 @@ public class Server extends JFrame {
         clientOutputStream = client.getOutputStream();
         
         //Get Client IP address
-        theServer.ClientIPAddr = client.getInetAddress();
-		theServer.label.setText("Received connection request from client " + theServer.ClientIPAddr.getHostAddress());
+        theServer.label.setText("Received connection request from client " + client.getInetAddress().getHostAddress());
         
 		//Wait for the client to return the desired file
 		while (true){
-			Request request = parse_HTTP_request();
+			Request request = parse_HTTP_request(); //Faz alguma coisa com o request
 			if (request.getMethod().equals("GET")){
 				try{
 					//If file exists and the server has permission to read, send OK response
@@ -92,13 +91,12 @@ public class Server extends JFrame {
 					//else, send file not found status code
 					theServer.label.setText("Sending file not found response to requested file " + request.getRequestedFile());
 					send_HTTP_header_response(404);
-				}
-				
+				}	
 			} else {
 				//If the request wasn't a GET
 				theServer.label.setText("Sending bad request response");
 				send_HTTP_header_response(400);
-			}
+			} 
 		}
     }
     
@@ -147,7 +145,7 @@ public class Server extends JFrame {
 		String constructedLine = "";
 		String readChar;
 		byte[] byteChar = new byte[1];
-		Boolean carrReturn = false;
+		boolean carrReturn = false;
 		while (stream.read(byteChar) == 1){
 			readChar = new String(byteChar);
 			if (readChar.matches("\r")) {
