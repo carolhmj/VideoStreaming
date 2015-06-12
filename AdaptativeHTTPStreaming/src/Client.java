@@ -59,6 +59,9 @@ public class Client {
     static String[] resolutions = {"A","B","C"};
     static String currentResolution; 
     
+    //Manifesto
+    Map<String,String> manifesto;
+
     public Client() {
         
         //build GUI
@@ -166,16 +169,14 @@ public class Client {
 		        	//start the timer
 		        	send_HTTP_get_request();
 		        	int response = parse_HTTP_response_header();
-		        	if (response == 200){
-		        		try {
-				        	videoDecoder = new VideoStream(HTTPInputStream);		
-				        	state = READY;
-		        		} catch (Exception ex){
-		        			ex.printStackTrace();
-		        		}
-			        	
-			        	System.out.println(state);
-		        	}
+	        		try {
+			        	videoDecoder = new VideoStream(HTTPInputStream);		
+			        	state = READY;
+	        		} catch (Exception ex){
+	        			ex.printStackTrace();
+	        		}
+		        	
+		        	System.out.println(state);
 		        } //else if state != INIT then do nothing
 	    } catch (Exception e1){
 	    	e1.printStackTrace();
@@ -235,7 +236,8 @@ public class Client {
 	    }
 	}
 	
-	
+	//Handler for Resolution button
+	//-----------------------
 	class resolutionButtonListener implements ActionListener {
 		public void actionPerformed (ActionEvent e) {
 			System.out.println("Select resolutions!");
@@ -284,46 +286,52 @@ public class Client {
 	//Parse Server Response
 	//------------------------------------
 	
-	public Integer parse_HTTP_response_header(){
-		try {
-			String HeaderLine = read_line_input_stream(HTTPInputStream);
-			System.out.println(HeaderLine);
-			
-			if (HeaderLine == null) {
-				return 0;
-			}
-			
-			StringTokenizer tokens = new StringTokenizer(HeaderLine);
-			tokens.nextToken(); //Skip HTTP Version
-			Integer responseCode = Integer.parseInt(tokens.nextToken()); //Pega codigo de resposta
-			String responseDesc = "";
-			for (int i = 0; i < tokens.countTokens(); i++){
-				responseDesc = responseDesc + " " + tokens.nextToken(); //Pega descricao do erro
-			} 
-			
-			//Agora vai ler as proximas linhas ate encontrar uma linha que so tenha CRLF, encontra
-			//o comprimento do conteudo e retorna esse valor!
-			Integer lengthVideo = 0;
-			do {
-				HeaderLine = read_line_input_stream(HTTPInputStream);
-				System.out.println(HeaderLine);
-				tokens = new StringTokenizer(HeaderLine);
-				if (tokens.hasMoreTokens()) {
-					String headerAttr = tokens.nextToken(); //descobre qual o atributo daquela linha
-					if (headerAttr.equals("Content-Length:")){
-						lengthVideo = Integer.parseInt(tokens.nextToken());
-					}
-				}
-			} while (!HeaderLine.equals(""));
-			
-			return responseCode;
-			
-			//return 0; //nao era pra acontecer, mas ne...
-			
-		} catch (IOException e) {
-			e.printStackTrace();
+	public int parse_HTTP_response_header() throws IOException{
+		String HeaderLine = read_line_input_stream(HTTPInputStream);
+		System.out.println(HeaderLine);
+		
+		if (HeaderLine == null) {
+			return 0;
 		}
-		return 0;
+		
+		StringTokenizer tokens = new StringTokenizer(HeaderLine);
+		tokens.nextToken(); //Skip HTTP Version
+		int responseCode = Integer.parseInt(tokens.nextToken()); //Pega codigo de resposta
+		String responseDesc = "";
+		for (int i = 0; i < tokens.countTokens(); i++){
+			responseDesc = responseDesc + " " + tokens.nextToken(); //Pega descricao do erro
+		} 
+		
+		//Agora vai ler as proximas linhas ate encontrar uma linha que so tenha CRLF, encontra
+		//o comprimento do conteudo e retorna esse valor!
+		int lengthVideo = 0;
+		do {
+			HeaderLine = read_line_input_stream(HTTPInputStream);
+			System.out.println(HeaderLine);
+			tokens = new StringTokenizer(HeaderLine);
+			if (tokens.hasMoreTokens()) {
+				String headerAttr = tokens.nextToken(); //descobre qual o atributo daquela linha
+				if (headerAttr.equals("Content-Length:")){
+					lengthVideo = Integer.parseInt(tokens.nextToken());
+				}
+			}
+		} while (!HeaderLine.equals(""));
+		
+		return lengthVideo;
+	}
+	
+	public void parse_manifest_response(){
+		try {
+			parse_HTTP_response_header();
+			BufferedReader is = new BufferedReader(new InputStreamReader(HTTPInputStream));
+			int qtdVideos = Integer.parseInt(is.readLine());
+			for (int i = 0; i < qtdVideos; i++) {
+				String[] valores = is.readLine().split(",");
+				manifesto.put(valores[0], valores[1]);
+			}
+		} catch (IOException e) {
+			System.exit(1);
+		}
 	}
 	
 	//------------------------------------
