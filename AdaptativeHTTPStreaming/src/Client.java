@@ -118,29 +118,19 @@ public class Client {
 	public static void main(String argv[]) throws Exception
 	{
 		//Create a Client object
+		@SuppressWarnings("unused")
 		Client theClient = new Client();
 
 		//get server RTSP port and IP address from the command line
 		//------------------
 		ServerHost = argv[0];
-		InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
+//		InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
 
 		port = Integer.parseInt(argv[1]);
 
 		//get video filename to request:
 		ManifestFileName = argv[2];
-		System.out.println(ManifestFileName + " pedindo manifesto na porta " + port);
-		try 
-		{
-			theClient.HTTPsocket = new Socket(ServerIPAddr, port);
-			HTTPInputStream = theClient.HTTPsocket.getInputStream();
-			HTTPOutputStream = theClient.HTTPsocket.getOutputStream();
-			state = INIT;
-		} 
-		catch(Exception e) 
-		{ 
-			e.printStackTrace();
-		}
+		state = INIT;
 
 	}
 
@@ -158,7 +148,7 @@ public class Client {
 			try{
 				if (state == INIT)
 				{
-					if (HTTPsocket.isClosed()) {
+					if (HTTPsocket==null || HTTPsocket.isClosed()) {
 						System.out.println("socket is closed");
 						//Re-send a connection request 
 						InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
@@ -167,8 +157,9 @@ public class Client {
 						HTTPOutputStream = HTTPsocket.getOutputStream();
 					}
 					//start the timer
+					System.out.println(ManifestFileName + " pedindo manifesto na porta " + port);
 					send_HTTP_get_request(ManifestFileName);
-					System.out.println("Començando a ler o manifesto:");
+					System.out.println("Começando a ler o manifesto:");
 					parse_manifest_response();
 					state = WAITING;
 					System.out.println(state);
@@ -235,6 +226,12 @@ public class Client {
 	//-----------------------
 	class resolutionButtonListener implements ActionListener {
 		public void actionPerformed (ActionEvent e) {
+			try {
+				HTTPsocket.close();
+			} catch (IOException e2) {
+				// TODO Auto-generated catch block
+				e2.printStackTrace();
+			}
 			System.out.println("Select resolutions!");
 			if (state != INIT){
 				resolutions = new String[0];
@@ -253,8 +250,16 @@ public class Client {
 				}
 				
 				try {
+					if (HTTPsocket==null || HTTPsocket.isClosed()) {
+						System.out.println("socket is closed");
+						//Re-send a connection request 
+						InetAddress ServerIPAddr = InetAddress.getByName(ServerHost);
+						HTTPsocket = new Socket(ServerIPAddr, port);
+						HTTPInputStream = HTTPsocket.getInputStream();
+						HTTPOutputStream = HTTPsocket.getOutputStream();
+					}
 					HTTPInputStream.skip(HTTPInputStream.available());
-					send_HTTP_post_request(manifesto.get(currentResolution),"0");
+					send_HTTP_post_request(manifesto.get(currentResolution),Integer.toString(readUntilNow));
 					parse_HTTP_response_header();
 					videoDecoder = new VideoStream(HTTPInputStream);
 				} catch (IOException e1) {
@@ -281,7 +286,7 @@ public class Client {
 
 					Frame frame = videoDecoder.getnextframe();
 					if (frame != null){
-						readUntilNow += frame.getLength();
+						readUntilNow += 1;
 						System.out.println("read until now: " + readUntilNow);
 						//get an Image object from the payload bitstream
 						Toolkit toolkit = Toolkit.getDefaultToolkit();

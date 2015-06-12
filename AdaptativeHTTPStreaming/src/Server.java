@@ -49,67 +49,87 @@ public class Server extends JFrame {
         theServer.pack();
         theServer.setVisible(true);
         
-        try {
-	        //Initiate TCP connection with the client
-	        ServerSocket server = new ServerSocket(LISTENING_PORT);
-	        clientSocket = server.accept();
-	        server.close();
-	        clientInputStream = clientSocket.getInputStream();
-	        clientOutputStream = clientSocket.getOutputStream();
-	        
-			theServer.label.setText("Received connection request from client " + clientSocket.getInetAddress().getHostAddress() + ". Now waiting for manifest request...");
-			
-			//Send manifest and wait a positive answer
-			RequestFile manifReq = null;
-			do {
-				manifReq = manifest_request_response();
-			} while (manifReq == null);
-			
-			theServer.label.setText("Client solicited manifest " + manifReq.getRequestFile().getPath() + ". Now sending...");
-			
-			//Got manifest, now sending...
-			FileInputStream manifestSending = new FileInputStream(manifReq.getRequestFile());
-			int readByteMan;
-			while ((readByteMan = manifestSending.read()) != -1){
-				clientOutputStream.write(readByteMan);
-			}
-			manifestSending.close();
-			
-			//Manifest was sent, now waiting for requested file
-			theServer.label.setText("Manifest was sent, now waiting for requested file");
-			RequestFile reqFile;
-			do {
-				reqFile = video_request_response();
-			} while (reqFile==null);
-		
-			theServer.label.setText("Client solicited video " + reqFile.getRequestFile().getPath() + ". Now sending...");
-			VideoStream videoSend = new VideoStream(reqFile.getRequestFile());
-			System.out.println("Começando skip");
-			videoSend.skipFrames(reqFile.getStart());
-			
-			clientInputStream.skip(clientInputStream.available());
-			
-			int readByteVideo;
-			System.out.println("Começando while");
-			while ((readByteVideo = videoSend.fis.read()) != -1){
-				if (clientInputStream.available() > 0) {
-					theServer.label.setText("Client is available!");
-					System.out.println("Mudando...");
-					do {
-						reqFile = video_request_response();
-					} while (reqFile == null);
-					theServer.label.setText("Client changed solicited video " + reqFile.getRequestFile().getPath() + ". Now sending...");
-					videoSend = new VideoStream(reqFile.getRequestFile());
-					videoSend.skipFrames(reqFile.getStart());
+        while(true) {
+	        try {
+		        //Initiate TCP connection with the client
+	        	theServer.label.setText("Esperando conexão na porta "+LISTENING_PORT);
+		        ServerSocket server = new ServerSocket(LISTENING_PORT);
+		        clientSocket = server.accept();
+		        server.close();
+		        clientInputStream = clientSocket.getInputStream();
+		        clientOutputStream = clientSocket.getOutputStream();
+		        BufferedReader br = new BufferedReader(new InputStreamReader(clientInputStream));
+		        BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(clientOutputStream));
+				theServer.label.setText("Received connection request from client " + clientSocket.getInetAddress().getHostAddress() + ".");
+				
+				String[] header = br.readLine().split(" ");
+				theServer.label.setText(header[0] + " " + header[1]);
+				if (header[0].equals("GET")) {
+					while (br.readLine().equals("")) {}
+					System.out.println("Começando a mandar");
+					File requested = new File("."+header[1]);
+					if (!requested.canRead()) {
+						System.out.println("Falha:" + requested.exists());
+						System.out.println("File: ." + header[1]);
+						send_HTTP_header_response(404);
+					} else {
+						send_HTTP_header_response(200);
+						bw.write("Content-Lenght: "+Long.toString(requested.length())+CRLF);
+						if (header[1].endsWith(".mjpeg"))
+							bw.write("Content-Type: video/x-motion-jpeg"+CRLF);
+						else
+							bw.write("Content-Type: text/plain"+CRLF);
+						bw.write(CRLF);
+						FileInputStream fs = new FileInputStream(requested);
+						while (fs.available() > 0)
+							bw.write(fs.read());
+						fs.close();
+						bw.flush();
+						clientSocket.close();
+						System.out.println("Enviado!");
+						theServer.label.setText("Enviado!");
+					}
+				} else if (header[0].equals("POST")) {
+					System.out.println("Começando a mandar");
+					File requested = new File("."+header[1]);
+					if (!requested.canRead()) {
+						System.out.println("Falha:" + requested.exists());
+						System.out.println("File: ." + header[1]);
+						send_HTTP_header_response(404);
+					} else {
+						System.out.println(br.readLine()); // Host [...]
+						System.out.println(br.readLine()); // Content-Type [...]
+						System.out.println(br.readLine()); // Content-Lenght [...]
+						br.readLine();
+						int frameToSkip = Integer.parseInt(br.readLine());
+						
+						send_HTTP_header_response(200);
+						bw.write("Content-Lenght: "+Long.toString(requested.length())+CRLF);
+						bw.write("Content-Type: video/x-motion-jpeg"+CRLF);
+						bw.write(CRLF);
+						bw.flush();
+						
+						VideoStream videoSend = new VideoStream(requested);
+						videoSend.skipFrames(frameToSkip);
+						int readVideoByte;
+						while ((readVideoByte = videoSend.fis.read()) != -1)
+							clientOutputStream.write(readVideoByte);
+						
+						videoSend.fis.close();
+						clientSocket.close();
+						System.out.println("Enviado!");
+						theServer.label.setText("Enviado!");
+					}
 				}
-				clientOutputStream.write(readByteVideo);
+				else {
+					send_HTTP_header_response(400);
+				}
+				
+	        } catch (SocketException e){
+	        	theServer.label.setText("Error de socket, reinciando");
+	        } catch (Exception e) {
+	        	e.printStackTrace();
 			}
-			
-			theServer.label.setText("Sent video successfully");
-			
-        } catch (Exception e){
-        	theServer.label.setText("Error connecting to client!");
-        	e.printStackTrace();
         }
     }
     
@@ -235,8 +255,7 @@ public class Server extends JFrame {
 	    		response = "HTTP/1.0 400 Bad Request" + CRLF;
 	    	}
 			write_line_output_stream(response, clientOutputStream);
-			response = "" + CRLF;
-			write_line_output_stream(response, clientOutputStream);
+//			write_line_output_stream(CRLF, clientOutputStream);
 			
     	} catch (IOException e) {
 			e.printStackTrace();
@@ -258,8 +277,7 @@ public class Server extends JFrame {
 	    	}
 			write_line_output_stream(response, clientOutputStream);
 			write_line_output_stream(extraHeaders, clientOutputStream);
-			response = "" + CRLF;
-			write_line_output_stream(response, clientOutputStream);
+			write_line_output_stream(CRLF, clientOutputStream);
 			
     	} catch (IOException e) {
 			e.printStackTrace();
