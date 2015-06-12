@@ -237,29 +237,30 @@ public class Client {
 	class resolutionButtonListener implements ActionListener {
 		public void actionPerformed (ActionEvent e) {
 			System.out.println("Select resolutions!");
-			resolutions = (String[]) manifesto.keySet().toArray();
-			if (state == PLAYING) {
-				timer.stop();
+			if (state != INIT){
+				resolutions = (String[]) manifesto.keySet().toArray();
+				if (state == PLAYING) {
+					timer.stop();
+				}
+				currentResolution = (String) JOptionPane.showInputDialog(null,"Choose:","Select resolution",
+						JOptionPane.QUESTION_MESSAGE,
+						null,
+						resolutions,
+						resolutions[0]);
+				send_HTTP_get_request(manifesto.get(currentResolution));
+				try {
+					parse_HTTP_response_header();
+					videoDecoder = new VideoStream(HTTPInputStream);
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				
+				if (state == WAITING) 
+					state = READY;
+				if (state == PLAYING) 
+					timer.start();
 			}
-			currentResolution = (String) JOptionPane.showInputDialog(null,"Choose:","Select resolution",
-					JOptionPane.QUESTION_MESSAGE,
-					null,
-					resolutions,
-					resolutions[0]);
-			send_HTTP_get_request(manifesto.get(currentResolution));
-			try {
-				parse_HTTP_response_header();
-				videoDecoder = new VideoStream(HTTPInputStream);
-			} catch (IOException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-			
-			if (state == WAITING) 
-				state = READY;
-			if (state == PLAYING) 
-				timer.start();
-			
 		}
 	}
 	
@@ -315,7 +316,7 @@ public class Client {
 		int responseCode = Integer.parseInt(tokens.nextToken()); //Pega codigo de resposta
 		
 		if (responseCode != 200) {
-			throw new IOException("HTTP não foi OK 200, recebi: "+Integer.toString(responseCode))
+			throw new IOException("HTTP não foi OK 200, recebi: "+Integer.toString(responseCode));
 		}
 		String responseDesc = "";
 		for (int i = 0; i < tokens.countTokens(); i++){
