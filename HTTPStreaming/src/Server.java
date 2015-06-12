@@ -59,19 +59,19 @@ public class Server extends JFrame {
         theServer.pack();
         theServer.setVisible(true);
         
-        
-        //Initiate TCP connection with the client
-        server = new ServerSocket(LISTENING_PORT);
-        client = server.accept();
-        server.close();
-        clientInputStream = client.getInputStream();
-        clientOutputStream = client.getOutputStream();
-        
-        //Get Client IP address
-        theServer.label.setText("Received connection request from client " + client.getInetAddress().getHostAddress());
-        
-		//Wait for the client to return the desired file
-		while (true){
+        while (true){
+	        //Initiate TCP connection with the client
+	        theServer.label.setText("Listening on port " + LISTENING_PORT + "...");
+	        server = new ServerSocket(LISTENING_PORT);
+	        client = server.accept();
+	        server.close();
+	        clientInputStream = client.getInputStream();
+	        clientOutputStream = client.getOutputStream();
+	        
+	        //Get Client IP address
+	        theServer.label.setText("Received connection request from client " + client.getInetAddress().getHostAddress());
+	        
+			//Wait for the client to return the desired file
 			Request request = parse_HTTP_request(); //Faz alguma coisa com o request
 			if (request.getMethod().equals("GET")){
 				try{
@@ -79,18 +79,25 @@ public class Server extends JFrame {
 					FileInputStream videoFile = new FileInputStream(request.getRequestedFile());
 					theServer.label.setText("Sending OK response to requested file " + request.getRequestedFile());
 					send_HTTP_header_response(200);
+					write_line_output_stream("Content-Type: video/x-motion-jpeg"+CRLF,clientOutputStream);
+					write_line_output_stream("Content-Length: "+Integer.toString(videoFile.available())+CRLF,clientOutputStream);
+					write_line_output_stream(CRLF,clientOutputStream);
+					clientOutputStream.flush();
 					theServer.label.setText("Sending file...");
 					int readByte;
 					while ((readByte = videoFile.read()) != -1){
 						clientOutputStream.write(readByte);
 					}
 					videoFile.close();
+					client.close();
 					
-				} catch (Exception e) {
+				} catch (FileNotFoundException e) {
 					//else, send file not found status code
 					theServer.label.setText("Sending file not found response to requested file " + request.getRequestedFile());
 					send_HTTP_header_response(404);
-				}	
+				} catch (java.net.SocketException e) {
+					// Ignore
+				}
 			} else {
 				//If the request wasn't a GET
 				theServer.label.setText("Sending bad request response");
@@ -113,7 +120,7 @@ public class Server extends JFrame {
     		do {
     			headerLine = read_line_input_stream(clientInputStream);
     		} while(!headerLine.equals(""));
-    		return new Request(requestedMethod, filePath);
+    		return new Request(requestedMethod, "."+filePath);
     	} //por enquanto nao faz nada se o metodo nao for GET
     	return null;
     }
@@ -131,8 +138,8 @@ public class Server extends JFrame {
 	    		response = "HTTP/1.0 400 Bad Request" + CRLF;
 	    	}
 			write_line_output_stream(response, clientOutputStream);
-			response = "" + CRLF;
-			write_line_output_stream(response, clientOutputStream);
+//			response = "" + CRLF;
+//			write_line_output_stream(response, clientOutputStream);
 			
     	} catch (IOException e) {
 			e.printStackTrace();
