@@ -37,11 +37,13 @@ public class Client {
     final static int READY = 1;
     final static int PLAYING = 2;
     final static int PAUSED = 3;
+    final static int WAITING = 4;
     static int state = -1; //state == INIT or READY or PLAYING
     Socket HTTPsocket; //socket used to send/receive HTTP
     static InputStream HTTPInputStream;
     static OutputStream HTTPOutputStream;
     static String VideoFileName; //video file to request to the server
+    static String ManifestFileName; //nome do manifesto
     //static int HTTP_SND_PORT = 8000;
     static int port;
     
@@ -127,9 +129,8 @@ public class Client {
 	    port = Integer.parseInt(argv[1]);
 	    
 	    //get video filename to request:
-	    VideoFileName = argv[2];
-	    System.out.println(VideoFileName + " requested video on port " + port);
-	    
+	    ManifestFileName = argv[2];
+	    System.out.println(ManifestFileName + " pedindo manifesto na porta " + port);
 	    try 
 	    {
 	    	theClient.HTTPsocket = new Socket(ServerIPAddr, port);
@@ -167,15 +168,9 @@ public class Client {
 		            	HTTPOutputStream = HTTPsocket.getOutputStream();
 		        	}
 		        	//start the timer
-		        	send_HTTP_get_request();
-		        	int response = parse_HTTP_response_header();
-	        		try {
-			        	videoDecoder = new VideoStream(HTTPInputStream);		
-			        	state = READY;
-	        		} catch (Exception ex){
-	        			ex.printStackTrace();
-	        		}
-		        	
+		        	send_HTTP_get_request(ManifestFileName);
+		        	parse_HTTP_response_header();
+		        	state = WAITING;        	
 		        	System.out.println(state);
 		        } //else if state != INIT then do nothing
 	    } catch (Exception e1){
@@ -297,6 +292,10 @@ public class Client {
 		StringTokenizer tokens = new StringTokenizer(HeaderLine);
 		tokens.nextToken(); //Skip HTTP Version
 		int responseCode = Integer.parseInt(tokens.nextToken()); //Pega codigo de resposta
+		
+		if (responseCode != 200) {
+			throw new IOException("HTTP não foi OK 200, recebi: "+Integer.toString(responseCode))
+		}
 		String responseDesc = "";
 		for (int i = 0; i < tokens.countTokens(); i++){
 			responseDesc = responseDesc + " " + tokens.nextToken(); //Pega descricao do erro
@@ -330,6 +329,7 @@ public class Client {
 				manifesto.put(valores[0], valores[1]);
 			}
 		} catch (IOException e) {
+			System.out.println(e.getStackTrace());
 			System.exit(1);
 		}
 	}
@@ -338,7 +338,7 @@ public class Client {
 	//Send HTTP Request
 	//------------------------------------
 
-	public void send_HTTP_get_request()
+	public void send_HTTP_get_request(String VideoFileName)
 	{
 	    try {
 	    	String methodLine = "GET " + VideoFileName + " HTTP/1.0" + CRLF;
