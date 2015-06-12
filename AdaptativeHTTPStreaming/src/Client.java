@@ -243,13 +243,21 @@ public class Client {
 		public void actionPerformed (ActionEvent e) {
 			System.out.println("Select resolutions!");
 			resolutions = (String[]) manifesto.keySet().toArray();
-			timer.stop();
+			if (state == PLAYING) {
+				timer.stop();
+			}
 			currentResolution = (String) JOptionPane.showInputDialog(null,"Choose:","Select resolution",
 					JOptionPane.QUESTION_MESSAGE,
 					null,
 					resolutions,
 					resolutions[0]);
-			timer.start();
+			//TODO
+			
+			if (state == WAITING) 
+				state = READY;
+			if (state == PLAYING) 
+				timer.start();
+			
 		}
 	}
 	
