@@ -7,6 +7,7 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
 
 import javax.swing.*;
@@ -335,7 +336,7 @@ public class Client {
 	}
 	
 	//------------------------------------
-	//Send HTTP Request
+	//Send HTTP GET Request
 	//------------------------------------
 
 	public void send_HTTP_get_request()
@@ -351,6 +352,36 @@ public class Client {
 			//Escreve o fim do header fields
 			write_line_output_stream(CRLF, HTTPOutputStream);
 		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	//Send HTTP Post Request 
+	public void send_HTTP_post_request(String requestedFile, String options) {
+		try {
+			String methodLine = "POST " + requestedFile + " HTTP/1.0" + CRLF;
+			System.out.print(methodLine);
+			write_line_output_stream(methodLine, HTTPOutputStream);
+			
+			String hostLine = "Host: " + ServerHost + CRLF;
+			System.out.print(hostLine);
+			write_line_output_stream(hostLine, HTTPOutputStream);
+			
+			String contentLine = "Content-Type: application/x-www-form-urlencoded" + CRLF;
+			System.out.print(contentLine);
+			write_line_output_stream(contentLine, HTTPOutputStream);
+			
+			String optionsLine = options + CRLF;
+			String lengthLine = "Content-Length: " + optionsLine.getBytes().length + CRLF;
+			System.out.print(lengthLine);
+			write_line_output_stream(lengthLine, HTTPOutputStream);
+			
+			System.out.print(optionsLine);
+			write_line_output_stream(optionsLine, HTTPOutputStream);
+			write_line_output_stream(CRLF, HTTPOutputStream);
+			
+		} catch (IOException e){
 			e.printStackTrace();
 		}
 	}
