@@ -2,17 +2,17 @@
 //usage: java Server
 
 import java.awt.BorderLayout;
-import java.awt.Label;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
 import java.net.*;
+import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
-
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 
 public class Server extends JFrame {
+	private static final long serialVersionUID = -8479299801735514606L;
 	//HTTP Variables
 	static Socket clientSocket;
 	static InputStream clientInputStream;
@@ -76,22 +76,29 @@ public class Server extends JFrame {
 			manifestSending.close();
 			
 			//Manifest was sent, now waiting for requested file
+			theServer.label.setText("Manifest was sent, now waiting for requested file");
 			RequestFile reqFile;
 			do {
 				reqFile = video_request_response();
-			} while (reqFile == null);
+			} while (reqFile==null);
 		
-			theServer.label.setText("Client solicited video " + manifReq.getRequestFile().getPath() + ". Now sending...");
+			theServer.label.setText("Client solicited video " + reqFile.getRequestFile().getPath() + ". Now sending...");
 			VideoStream videoSend = new VideoStream(reqFile.getRequestFile());
+			System.out.println("Começando skip");
 			videoSend.skipFrames(reqFile.getStart());
 			
+			clientInputStream.skip(clientInputStream.available());
+			
 			int readByteVideo;
+			System.out.println("Começando while");
 			while ((readByteVideo = videoSend.fis.read()) != -1){
 				if (clientInputStream.available() > 0) {
+					theServer.label.setText("Client is available!");
+					System.out.println("Mudando...");
 					do {
 						reqFile = video_request_response();
 					} while (reqFile == null);
-					theServer.label.setText("Client changed solicited video " + manifReq.getRequestFile().getPath() + ". Now sending...");
+					theServer.label.setText("Client changed solicited video " + reqFile.getRequestFile().getPath() + ". Now sending...");
 					videoSend = new VideoStream(reqFile.getRequestFile());
 					videoSend.skipFrames(reqFile.getStart());
 				}
@@ -99,7 +106,7 @@ public class Server extends JFrame {
 			}
 			
 			theServer.label.setText("Sent video successfully");
-		
+			
         } catch (Exception e){
         	theServer.label.setText("Error connecting to client!");
         	e.printStackTrace();
@@ -113,7 +120,7 @@ public class Server extends JFrame {
 		manifReq = parse_HTTP_request();
 		if (manifReq.getMethod().equals("GET")) {
 			try {
-				File manifest = new File(manifReq.getRequestedFile());
+				File manifest = new File("."+manifReq.getRequestedFile());
 				
 				if (!manifest.exists() || !manifest.canRead()){
 					responseCode = 404;
@@ -149,6 +156,7 @@ public class Server extends JFrame {
 		int responseCode = 0;
 		File video;
 		fileReq = parse_HTTP_request();
+		if (fileReq == null) return null;
 		if (fileReq.getMethod().equals("POST")){
 			String reqBody = fileReq.getRequestBody();
 			long reqByte;
@@ -159,7 +167,8 @@ public class Server extends JFrame {
 				send_HTTP_header_response(responseCode);
 				return null;
 			}
-			video = new File(fileReq.getRequestBody());
+			System.out.println("File:"+fileReq.getRequestedFile());
+			video = new File("."+fileReq.getRequestedFile());
 			if (!video.exists()){
 				responseCode = 404;
 				send_HTTP_header_response(responseCode);
@@ -183,30 +192,34 @@ public class Server extends JFrame {
     
     public static Request parse_HTTP_request() throws IOException{
     	String headerLine = read_line_input_stream(clientInputStream);
-    	System.out.println(headerLine);
+    	System.out.println("linha: "+headerLine);
     	StringTokenizer tokens = new StringTokenizer(headerLine);
-    	String requestedMethod = tokens.nextToken();
-    	if (requestedMethod.equals("GET")){
-    		
-    		String filePath = tokens.nextToken();
-    		tokens.nextToken(); //skips version
-    		do {
-    			headerLine = read_line_input_stream(clientInputStream);
-    		} while(!headerLine.equals(""));
-    		return new Request(requestedMethod, filePath);
-    		
-    	} else if (requestedMethod.equals("POST")){
-    		
-    		String filePath = tokens.nextToken();
-    		tokens.nextToken();
-    		do {
-    			headerLine = read_line_input_stream(clientInputStream);
-    		} while(!headerLine.equals(""));
-    		String requestBody = read_line_input_stream(clientInputStream);
-    		return new Request(requestedMethod, filePath, requestBody);
-    		
+    	try {
+    		String requestedMethod = tokens.nextToken();
+	    	if (requestedMethod.equals("GET")){
+	    		
+	    		String filePath = tokens.nextToken();
+	    		tokens.nextToken(); //skips version
+	    		do {
+	    			headerLine = read_line_input_stream(clientInputStream);
+	    		} while(!headerLine.equals(""));
+	    		return new Request(requestedMethod, filePath);
+	    		
+	    	} else if (requestedMethod.equals("POST")){
+	    		
+	    		String filePath = tokens.nextToken();
+	    		tokens.nextToken();
+	    		do {
+	    			headerLine = read_line_input_stream(clientInputStream);
+	    		} while(!headerLine.equals(""));
+	    		String requestBody = read_line_input_stream(clientInputStream);
+	    		return new Request(requestedMethod, filePath, requestBody);
+	    		
+	    	}
+	    	return null;
+    	} catch (NoSuchElementException e) {
+    		return null;
     	}
-    	return null;
     }
     
     public static void send_HTTP_header_response(int code){

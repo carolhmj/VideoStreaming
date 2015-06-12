@@ -6,7 +6,6 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.awt.*;
-import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
 
 import javax.swing.*;
@@ -169,8 +168,9 @@ public class Client {
 					}
 					//start the timer
 					send_HTTP_get_request(ManifestFileName);
-					parse_HTTP_response_header();
-					state = WAITING;        
+					System.out.println("Començando a ler o manifesto:");
+					parse_manifest_response();
+					state = WAITING;
 					System.out.println(state);
 				} //else if state != INIT then do nothing
 		} catch (Exception e1){
@@ -237,7 +237,8 @@ public class Client {
 		public void actionPerformed (ActionEvent e) {
 			System.out.println("Select resolutions!");
 			if (state != INIT){
-				resolutions = (String[]) manifesto.keySet().toArray();
+				resolutions = new String[0];
+				resolutions = manifesto.keySet().toArray(resolutions);
 				if (state == PLAYING) {
 					timer.stop();
 				}
@@ -246,8 +247,14 @@ public class Client {
 						null,
 						resolutions,
 						resolutions[0]);
-				send_HTTP_get_request(manifesto.get(currentResolution));
+				if (currentResolution == null) {
+					state = WAITING;
+					return;
+				}
+				
 				try {
+					HTTPInputStream.skip(HTTPInputStream.available());
+					send_HTTP_post_request(manifesto.get(currentResolution),"0");
 					parse_HTTP_response_header();
 					videoDecoder = new VideoStream(HTTPInputStream);
 				} catch (IOException e1) {
@@ -340,16 +347,19 @@ public class Client {
 
 	public void parse_manifest_response(){
 		try {
+			manifesto = new HashMap<String,String>();
 			parse_HTTP_response_header();
 			BufferedReader is = new BufferedReader(new InputStreamReader(HTTPInputStream));
 			int qtdVideos = Integer.parseInt(is.readLine());
+			System.out.println("qtdVideos: "+Integer.toString(qtdVideos));
 			for (int i = 0; i < qtdVideos; i++) {
-				String[] valores = is.readLine().split(",");
+				String linha = is.readLine();
+				System.out.println(linha);
+				String[] valores = linha.split(",");
 				manifesto.put(valores[0], valores[1]);
 			}
 		} catch (IOException e) {
-			System.out.println(e.getStackTrace());
-			System.exit(1);
+			e.printStackTrace();
 		}
 	}
 
@@ -394,10 +404,12 @@ public class Client {
 			String lengthLine = "Content-Length: " + optionsLine.getBytes().length + CRLF;
 			System.out.print(lengthLine);
 			write_line_output_stream(lengthLine, HTTPOutputStream);
+			write_line_output_stream(CRLF, HTTPOutputStream);
 
 			System.out.print(optionsLine);
 			write_line_output_stream(optionsLine, HTTPOutputStream);
 			write_line_output_stream(CRLF, HTTPOutputStream);
+			HTTPOutputStream.flush();
 
 		} catch (IOException e){
 			e.printStackTrace();

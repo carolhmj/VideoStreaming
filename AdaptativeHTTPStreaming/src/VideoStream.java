@@ -62,7 +62,11 @@ public class VideoStream {
         byte[] frame_length = new byte[5];
         
         //read current frame length
-        fis.read(frame_length,0,5);
+        frame_length[0] = (byte)fis.read();
+        frame_length[1] = (byte)fis.read();
+        frame_length[2] = (byte)fis.read();
+        frame_length[3] = (byte)fis.read();
+        frame_length[4] = (byte)fis.read();
         
 		//for (int i = 0; i < 5; i++){
 		//	System.out.print(frame_length[i] + " ");
@@ -93,6 +97,7 @@ public class VideoStream {
     	
     	while (readFrames <= nframes){
     		getnextframe(); //calls getnextframe the needed number of times and ignores result
-    	}
+    		readFrames++;
+     	}
     }
 }
