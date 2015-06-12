@@ -113,7 +113,7 @@ public class Server extends JFrame {
 		manifReq = parse_HTTP_request();
 		if (manifReq.getMethod().equals("GET")) {
 			try {
-				File manifest = new File(manifReq.getRequestedFile());
+				File manifest = new File("."+manifReq.getRequestedFile());
 				
 				if (!manifest.exists() || !manifest.canRead()){
 					responseCode = 404;
