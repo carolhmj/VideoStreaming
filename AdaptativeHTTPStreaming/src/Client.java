@@ -246,7 +246,14 @@ public class Client {
 					null,
 					resolutions,
 					resolutions[0]);
-			//TODO
+			send_HTTP_get_request(manifesto.get(currentResolution));
+			try {
+				parse_HTTP_response_header();
+				videoDecoder = new VideoStream(HTTPInputStream);
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
 			
 			if (state == WAITING) 
 				state = READY;
