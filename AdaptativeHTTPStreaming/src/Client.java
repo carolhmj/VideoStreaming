@@ -241,8 +241,13 @@ public class Client {
 	class resolutionButtonListener implements ActionListener {
 		public void actionPerformed (ActionEvent e) {
 			System.out.println("Select resolutions!");
+			resolutions = (String[]) manifesto.keySet().toArray();
 			timer.stop();
-			currentResolution = (String) JOptionPane.showInputDialog(null,"Choose:","Select resolution",JOptionPane.QUESTION_MESSAGE,null,resolutions,resolutions[0]);
+			currentResolution = (String) JOptionPane.showInputDialog(null,"Choose:","Select resolution",
+					JOptionPane.QUESTION_MESSAGE,
+					null,
+					resolutions,
+					resolutions[0]);
 			timer.start();
 		}
 	}
